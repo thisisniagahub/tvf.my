@@ -273,9 +273,9 @@ export function Header() {
       >
         <Icons.Gift className="size-5" />
         {!hasSeenChangelog && (
-          <span className="absolute -right-0.5 -top-0.5 flex size-2.5">
-            <span className="absolute inline-flex size-2.5 animate-ping rounded-full bg-shopee/60" />
-            <span className="relative inline-flex size-2.5 rounded-full bg-shopee" />
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-shopee px-1 text-[9px] font-bold text-white shadow-sm">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-shopee/60" />
+            <span className="relative">5</span>
           </span>
         )}
       </Button>

@@ -13,6 +13,17 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Select,
@@ -70,7 +81,7 @@ const sessions = [
 ]
 
 export function SettingsPage() {
-  const { user, liveNotificationsEnabled, setLiveNotificationsEnabled, setChangelogOpen } = useAppStore()
+  const { user, liveNotificationsEnabled, setLiveNotificationsEnabled, setChangelogOpen, resetAllSettings, importSettings } = useAppStore()
   const { theme, setTheme } = useTheme()
   const [activeTab, setActiveTab] = useState('profile')
   const [selectedNiches, setSelectedNiches] = useState<string[]>(user?.niches ?? ['Electronics', 'Beauty', 'Fashion'])
@@ -885,6 +896,148 @@ export function SettingsPage() {
                     </button>
                   )
                 })}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Data Management" description="Export, import, or reset your settings" icon={Icons.Database}>
+              <div className="space-y-3 py-1">
+                {/* Export */}
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success/10 text-success">
+                      <Icons.Download className="size-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Export Settings</p>
+                      <p className="text-[10px] text-muted-foreground">Download all your preferences as a JSON file</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const state = useAppStore.getState()
+                      const exportData = {
+                        version: '2.4.0',
+                        exportedAt: new Date().toISOString(),
+                        settings: {
+                          sidebarCollapsed: state.sidebarCollapsed,
+                          pinnedPages: state.pinnedPages,
+                          recentPages: state.recentPages,
+                          pageVisitCounts: state.pageVisitCounts,
+                          liveNotificationsEnabled: state.liveNotificationsEnabled,
+                          theme,
+                        },
+                      }
+                      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `theviralfindsmy-settings-${new Date().toISOString().slice(0, 10)}.json`
+                      a.click()
+                      URL.revokeObjectURL(url)
+                      toast.success('Settings exported successfully!')
+                    }}
+                  >
+                    <Icons.Download className="mr-1 size-3.5" /> Export
+                  </Button>
+                </div>
+
+                {/* Import */}
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-hermes/10 text-hermes">
+                      <Icons.Upload className="size-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Import Settings</p>
+                      <p className="text-[10px] text-muted-foreground">Restore preferences from a JSON file</p>
+                    </div>
+                  </div>
+                  <label className="cursor-pointer">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                    >
+                      <span>
+                        <Icons.Upload className="mr-1 size-3.5" /> Import
+                      </span>
+                    </Button>
+                    <input
+                      type="file"
+                      accept="application/json"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        const reader = new FileReader()
+                        reader.onload = (event) => {
+                          try {
+                            const data = JSON.parse(event.target?.result as string)
+                            if (data.settings) {
+                              importSettings(data.settings)
+                              toast.success('Settings imported successfully!')
+                            } else {
+                              toast.error('Invalid settings file format')
+                            }
+                          } catch {
+                            toast.error('Failed to parse settings file')
+                          }
+                        }
+                        reader.readAsText(file)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {/* Reset */}
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/[0.03] p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                      <Icons.RotateCcw className="size-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-destructive">Reset All Settings</p>
+                      <p className="text-[10px] text-muted-foreground">Restore everything to defaults (pinned pages, recent, visit counts, theme, notifications)</p>
+                    </div>
+                  </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm">
+                        <Icons.RotateCcw className="mr-1 size-3.5" /> Reset
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Reset all settings?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will restore all preferences to their default values. This includes:
+                          <br />• Pinned pages (reset to Dashboard, AI Content, Earnings)
+                          <br />• Recent pages &amp; visit counts (cleared)
+                          <br />• Live notifications (re-enabled)
+                          <br />• Sidebar (expanded)
+                          <br />• Theme (light)
+                          <br /><br />
+                          Your account and onboarding status will be preserved. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => {
+                            resetAllSettings()
+                            setTheme('light')
+                            toast.success('All settings reset to defaults')
+                          }}
+                        >
+                          Yes, reset everything
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
             </SectionCard>
 

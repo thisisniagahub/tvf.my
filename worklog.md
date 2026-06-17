@@ -1114,3 +1114,53 @@ Stage Summary:
   4. Add a "reset all settings" option in the Settings → About tab.
   5. Add export/import settings functionality (JSON download/upload).
   6. Add a dark mode tour / interactive onboarding for the command palette features.
+
+---
+
+Task ID: 10 (Main orchestrator round — data management, notification badge)
+Agent: main (Z.ai Code orchestrator)
+Task: QA the local app, then add Reset All Settings, Export/Import settings, and notification badge count on the What's New header button.
+
+Work Log:
+- Reviewed worklog.md: app stable with About tab, frequent pages, skeleton loading, fixed key warning.
+- QA with agent-browser: all 36 pages render, 0 console errors, 0 lint errors, 0 TS errors in src/. App is stable.
+
+- FEATURE: Reset All Settings (with confirmation dialog)
+  * Added `resetAllSettings` action to Zustand store — resets: sidebarCollapsed, pinnedPages, recentPages, pageVisitCounts, liveNotificationsEnabled, hasSeenOnboarding/Shortcuts/Changelog, changelogOpen, commandPaletteOpen, activePage
+  * Added `importSettings` action for the import feature
+  * Added "Data Management" SectionCard to Settings → About tab with 3 options:
+    - Export Settings (success green): downloads JSON with version, timestamp, and all persisted settings
+    - Import Settings (hermes purple): file picker that reads JSON, validates, and calls importSettings
+    - Reset All Settings (destructive red): opens AlertDialog confirmation with detailed list of what gets reset
+  * AlertDialog with Cancel + "Yes, reset everything" — reset triggers toast and navigates to Dashboard
+  * Export creates a Blob and triggers download as `theviralfindsmy-settings-YYYY-MM-DD.json`
+  * Import validates JSON structure (must have `settings` key), shows toast on success/error
+
+- FEATURE: Notification badge count on "What's New" header button
+  * Updated the What's New button badge from a simple pulsing dot to a count badge showing "5" (number of unseen changelog entries)
+  * Badge: shopee orange background, white text, size-4 min-w-4, with animate-ping ring
+  * Shows when `hasSeenChangelog` is false (disappears after user dismisses the changelog)
+  * More informative than just a dot — users know there are 5 new updates to see
+
+- QA verification:
+  * bun run lint: 0 errors, 0 warnings ✓
+  * tsc --noEmit: 0 errors in src/ ✓
+  * All 36 pages render: 0 failures ✓
+  * What's New badge: shows "5" count when hasSeenChangelog is false ✓
+  * Export Settings: triggers JSON file download ✓
+  * Import Settings: file picker opens, validates JSON, imports on success ✓
+  * Reset All Settings: AlertDialog confirmation shows with detailed warning ✓
+  * Reset confirm: "All settings reset" toast + navigates to Dashboard ✓
+  * 0 console errors, 0 page errors ✓
+
+Stage Summary:
+- The local TheViralFindsMY app now has a complete Data Management section in Settings → About (Export, Import, Reset with confirmation dialog) and a notification badge count on the What's New header button.
+- The app remains stable: 0 lint errors, 0 TypeScript errors in src/, all 36 pages render, 0 console errors.
+- Settings are now fully portable — users can export their preferences, import on another device, or reset to defaults.
+- Recommended next-step focus for the next recurring review:
+  1. Wire up the Prisma database (schema still has default User/Post models — add Product, Link, Campaign, Notification models and persist real data).
+  2. Make content search results clickable to open detail modals (e.g., clicking a product result opens the product detail dialog).
+  3. Add a dark mode tour / interactive onboarding for the command palette features.
+  4. Add a "keyboard shortcuts cheat sheet" accessible from the header (more comprehensive than the current shortcuts modal).
+  5. Add a notification sound option in settings (play a sound when a live sale notification arrives).
+  6. Add a "focus mode" that hides the sidebar and notifications for distraction-free work.

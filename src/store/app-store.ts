@@ -32,6 +32,8 @@ interface AppState {
   clearRecentPages: () => void
   setChangelogOpen: (open: boolean) => void
   dismissChangelog: () => void
+  resetAllSettings: () => void
+  importSettings: (settings: Partial<AppState>) => void
 }
 
 const defaultUser: User = {
@@ -100,6 +102,21 @@ export const useAppStore = create<AppState>()(
       clearRecentPages: () => set({ recentPages: [] }),
       setChangelogOpen: (open) => set({ changelogOpen: open }),
       dismissChangelog: () => set({ hasSeenChangelog: true, changelogOpen: false }),
+      resetAllSettings: () =>
+        set({
+          sidebarCollapsed: false,
+          pinnedPages: ['dashboard', 'ai-content', 'earnings'],
+          recentPages: [],
+          pageVisitCounts: {},
+          liveNotificationsEnabled: true,
+          hasSeenOnboarding: true,
+          hasSeenShortcuts: true,
+          hasSeenChangelog: true,
+          changelogOpen: false,
+          commandPaletteOpen: false,
+          activePage: 'dashboard',
+        }),
+      importSettings: (settings) => set(settings),
     }),
     {
       name: 'tvfm-store',
