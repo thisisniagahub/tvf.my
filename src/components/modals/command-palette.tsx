@@ -98,6 +98,32 @@ export function CommandPalette() {
     return [...pageMatches, ...actionMatches]
   }, [query])
 
+  // Global content search (products, links, campaigns) — debounced
+  const [contentResults, setContentResults] = useState<any[]>([])
+  const [searchingContent, setSearchingContent] = useState(false)
+
+  useEffect(() => {
+    if (!query.trim() || query.trim().length < 2) {
+      setContentResults([])
+      return
+    }
+    setSearchingContent(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
+        if (res.ok) {
+          const data = await res.json()
+          setContentResults(data.results || [])
+        }
+      } catch {
+        setContentResults([])
+      } finally {
+        setSearchingContent(false)
+      }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [query])
+
   const handleSelect = useCallback((item: any) => {
     if (item.type === 'page') {
       setActivePage(item.page)
@@ -133,7 +159,19 @@ export function CommandPalette() {
     ...quickActions.map((a) => ({ type: 'action' as const, ...a })),
   ], [recentItems])
 
-  const displayItems = results ?? allItems
+  // Map content results to display items with proper icons
+  const contentItems = contentResults.map((r) => ({
+    type: 'content' as const,
+    id: r.id,
+    label: r.label,
+    desc: r.desc,
+    icon: r.icon === 'Package' ? Icons.Package : r.icon === 'Link' ? Icons.Link : Icons.Megaphone,
+    badge: r.badge,
+    page: r.page,
+    contentType: r.type,
+  }))
+
+  const displayItems = results ? [...results, ...contentItems] : allItems
 
   // Keyboard navigation handler
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -227,8 +265,22 @@ export function CommandPalette() {
               </p>
             </div>
           )}
+          {results && contentItems.length > 0 && (
+            <div className="px-4 pt-3 pb-1">
+              <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <Icons.Database className="size-3 text-hermes" /> Content
+                <span className="font-normal text-muted-foreground/60">({contentItems.length})</span>
+              </p>
+            </div>
+          )}
+          {searchingContent && (
+            <div className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground">
+              <Icons.Loader2 className="size-3 animate-spin" />
+              Searching content...
+            </div>
+          )}
           <div className="p-2">
-            {displayItems.length === 0 && query && (
+            {displayItems.length === 0 && query && !searchingContent && (
               <div className="flex flex-col items-center justify-center py-10 text-center">
                 <Icons.SearchX className="size-8 text-muted-foreground/40" />
                 <p className="mt-2 text-sm font-medium">No results for &quot;{query}&quot;</p>
@@ -238,10 +290,18 @@ export function CommandPalette() {
             {displayItems.map((item: any, idx: number) => {
               const isActive = idx === activeIndex
               const isRecent = item.recent && !results
+              const isContent = item.type === 'content'
+              const isFirstContent = isContent && (idx === 0 || displayItems[idx - 1]?.type !== 'content')
               // Find boundary between recent and actions for visual separator
               const isLastRecent = isRecent && idx === recentItems.length - 1
               return (
                 <div key={`${item.type}-${item.id}`}>
+                  {isFirstContent && results && results.length > 0 && (
+                    <div className="my-1 border-t" />
+                  )}
+                  {isFirstContent && results && results.length === 0 && idx > 0 && (
+                    <div className="my-1 border-t" />
+                  )}
                   <button
                     data-idx={idx}
                     onMouseEnter={() => setActiveIndex(idx)}
@@ -253,7 +313,9 @@ export function CommandPalette() {
                   >
                     <div className={cn(
                       'flex size-8 shrink-0 items-center justify-center rounded-lg transition-transform',
-                      item.type === 'action' ? 'bg-hermes/10 text-hermes' : 'bg-muted text-muted-foreground',
+                      item.type === 'action' ? 'bg-hermes/10 text-hermes' :
+                      item.type === 'content' ? 'bg-shopee/10 text-shopee' :
+                      'bg-muted text-muted-foreground',
                       isActive && 'scale-110'
                     )}>
                       <item.icon className="size-4" />

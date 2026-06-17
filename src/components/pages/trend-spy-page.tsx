@@ -15,7 +15,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu'
-import { PageHeader, StatCard, TrendBadge } from './_shared'
+import { PageHeader, StatCard, TrendBadge, StatCardSkeleton, ListRowSkeleton } from './_shared'
 import { formatRM } from '@/lib/demo-data'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -56,10 +56,21 @@ export function TrendSpyPage() {
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Trending Products" value={trends.length.toString()} icon={Icons.Radar} accent="hermes" subtitle="Detected today" />
-        <StatCard label="Hot Categories" value={categories.filter((c: any) => c.status === 'hot').length.toString()} icon={Icons.Flame} accent="shopee" subtitle="Above 70% velocity" />
-        <StatCard label="Your Watchlist" value="12" icon={Icons.Eye} accent="success" subtitle="Products tracked" />
-        <StatCard label="Active Alerts" value="5" icon={Icons.BellRing} accent="warning" subtitle="Notification on" />
+        {isLoading ? (
+          <>
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </>
+        ) : (
+          <>
+            <StatCard label="Trending Products" value={trends.length.toString()} icon={Icons.Radar} accent="hermes" subtitle="Detected today" />
+            <StatCard label="Hot Categories" value={categories.filter((c: any) => c.status === 'hot').length.toString()} icon={Icons.Flame} accent="shopee" subtitle="Above 70% velocity" />
+            <StatCard label="Your Watchlist" value="12" icon={Icons.Eye} accent="success" subtitle="Products tracked" />
+            <StatCard label="Active Alerts" value="5" icon={Icons.BellRing} accent="warning" subtitle="Notification on" />
+          </>
+        )}
       </div>
 
       {/* Category heatmap */}
@@ -129,7 +140,16 @@ export function TrendSpyPage() {
         <CardContent className="p-0">
           <ScrollArea className="max-h-[600px]">
             <div className="divide-y">
-              {filtered.map((t: any) => (
+              {isLoading ? (
+                Array.from({ length: 6 }).map((_, i) => <ListRowSkeleton key={i} />)
+              ) : filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Icons.SearchX className="size-8 text-muted-foreground/40" />
+                  <p className="mt-2 text-sm font-medium">No trending products found</p>
+                  <p className="text-xs text-muted-foreground">Try a different category filter</p>
+                </div>
+              ) : (
+                filtered.map((t: any) => (
                 <div key={t.id} className="flex items-center gap-4 p-4 hover:bg-accent/40">
                   <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-muted/60 to-muted">
                     <Icons.Package className="size-6 text-muted-foreground/50" />
@@ -171,7 +191,8 @@ export function TrendSpyPage() {
                     </DropdownMenu>
                   </div>
                 </div>
-              ))}
+                ))
+              )}
             </div>
           </ScrollArea>
         </CardContent>

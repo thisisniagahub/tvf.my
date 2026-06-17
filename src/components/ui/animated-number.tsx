@@ -40,6 +40,16 @@ export function AnimatedNumber({
     return () => controls.stop()
   }, [inView, value, duration])
 
+  // Fallback: if inView never triggers (e.g. element already visible on mount),
+  // set the final value after a short delay to avoid showing 0 forever
+  useEffect(() => {
+    if (inView) return
+    const t = setTimeout(() => {
+      setDisplay(value)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [inView, value])
+
   const formatted = format
     ? format(display)
     : display.toLocaleString('en-MY', {

@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog,
   DialogContent,
@@ -18,7 +17,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { PageHeader, StatCard } from './_shared'
+import { PageHeader, StatCard, ProductGridSkeleton } from './_shared'
 import { formatRM, formatNumber } from '@/lib/demo-data'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -90,11 +89,7 @@ export function ProductsPage() {
 
       {/* Products grid */}
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-64" />
-          ))}
-        </div>
+        <ProductGridSkeleton count={8} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {products.map((p: any, index: number) => (

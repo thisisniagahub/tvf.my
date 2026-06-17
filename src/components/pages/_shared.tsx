@@ -4,6 +4,7 @@ import * as Icons from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { AnimatedNumber } from '@/components/ui/animated-number'
 import { cn } from '@/lib/utils'
 import { formatRM, formatNumber } from '@/lib/demo-data'
@@ -277,6 +278,89 @@ export function ComingSoonPage({ title, icon: Icon }: { title: string; icon?: Ic
         <Icons.Clock className="size-3.5" />
         <span>Expected release: Q1 2026</span>
       </div>
+    </div>
+  )
+}
+
+/** Skeleton card matching the product card layout */
+export function ProductCardSkeleton() {
+  return (
+    <Card className="overflow-hidden border-border/60">
+      <div className="relative aspect-square overflow-hidden bg-muted">
+        <Skeleton className="absolute inset-0 h-full w-full" />
+        <div className="absolute left-2 top-2 flex flex-col gap-1">
+          <Skeleton className="h-4 w-10 rounded-full" />
+          <Skeleton className="h-4 w-12 rounded-full" />
+        </div>
+        <Skeleton className="absolute right-2 top-2 h-4 w-16 rounded-full" />
+      </div>
+      <CardContent className="p-3">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="mt-1 h-4 w-2/3" />
+        <div className="mt-2 flex items-center justify-between">
+          <Skeleton className="h-6 w-20" />
+          <Skeleton className="h-3 w-10" />
+        </div>
+        <div className="mt-2 flex items-center justify-between">
+          <Skeleton className="h-3 w-12" />
+          <Skeleton className="h-3 w-10" />
+          <Skeleton className="h-3 w-8" />
+        </div>
+        <div className="mt-2 flex gap-1.5">
+          <Skeleton className="h-7 flex-1" />
+          <Skeleton className="h-7 flex-1" />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Skeleton for a list row (used in Trend Spy, activity feeds, leaderboards) */
+export function ListRowSkeleton({ avatar = true }: { avatar?: boolean }) {
+  return (
+    <div className="flex items-center gap-3 p-3">
+      {avatar && <Skeleton className="size-10 shrink-0 rounded-lg" />}
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <Skeleton className="h-3.5 w-3/4" />
+        <Skeleton className="h-3 w-1/2" />
+      </div>
+      <Skeleton className="h-5 w-16 rounded-full" />
+    </div>
+  )
+}
+
+/** Skeleton for a stat card */
+export function StatCardSkeleton() {
+  return (
+    <Card className="border-border/60">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between">
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-24" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+          <Skeleton className="size-10 rounded-lg" />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Skeleton grid for product grids */
+export function ProductGridSkeleton({ count = 8 }: { count?: number }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.05, duration: 0.3 }}
+        >
+          <ProductCardSkeleton />
+        </motion.div>
+      ))}
     </div>
   )
 }

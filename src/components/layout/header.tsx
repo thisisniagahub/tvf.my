@@ -60,16 +60,39 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
-      {/* Page title */}
-      <div className="flex items-center gap-2 min-w-0">
-        <h1 className="truncate text-lg font-bold md:text-xl">
-          {currentItem?.label ?? 'Dashboard'}
-        </h1>
-        {user && (
-          <Badge variant="outline" className="hidden sm:inline-flex bg-shopee/5 text-shopee border-shopee/20">
-            {user.plan.toUpperCase()}
-          </Badge>
-        )}
+      {/* Breadcrumb / page title */}
+      <div className="flex flex-col gap-0 min-w-0">
+        <nav className="flex items-center gap-1 text-[10px] text-muted-foreground" aria-label="Breadcrumb">
+          <button
+            onClick={() => setActivePage('dashboard')}
+            className="transition-colors hover:text-shopee"
+          >
+            Home
+          </button>
+          {currentItem && (
+            <>
+              <Icons.ChevronRight className="size-3 text-muted-foreground/50" />
+              <span className="text-muted-foreground/80 capitalize">{currentItem.category}</span>
+              <Icons.ChevronRight className="size-3 text-muted-foreground/50" />
+              <span className="font-medium text-foreground truncate max-w-[140px] sm:max-w-[200px]">
+                {currentItem.label}
+              </span>
+            </>
+          )}
+          {currentItem?.badge && (
+            <Badge variant="secondary" className="ml-1 h-3.5 px-1 text-[9px]">{currentItem.badge}</Badge>
+          )}
+        </nav>
+        <div className="flex items-center gap-2">
+          <h1 className="truncate text-base font-bold md:text-lg">
+            {currentItem?.label ?? 'Dashboard'}
+          </h1>
+          {user && (
+            <Badge variant="outline" className="hidden sm:inline-flex bg-shopee/5 text-shopee border-shopee/20 text-[10px]">
+              {user.plan.toUpperCase()}
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Search */}

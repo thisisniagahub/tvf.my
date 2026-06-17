@@ -778,3 +778,71 @@ Stage Summary:
   4. Add a "what's new" changelog modal that shows on first visit after updates.
   5. Add skeleton loading states for pages that fetch data (Products, Trend Spy, Dashboard).
   6. Add a breadcrumb trail in the header showing the current page hierarchy.
+
+---
+
+Task ID: 7 (Main orchestrator round — skeleton loading, breadcrumbs, global content search)
+Agent: main (Z.ai Code orchestrator)
+Task: QA the local app, then add skeleton loading states, breadcrumb trail in header, global content search in command palette, and fix AnimatedNumber stuck-at-zero bug.
+
+Work Log:
+- Reviewed worklog.md: app stable with command palette UX, celebration toasts, theme preview, mobile FAB, confetti, recent pages, stagger animations.
+- QA with agent-browser: all 36 pages render, 0 console errors, 0 lint errors, 0 TS errors in src/. App is stable.
+
+- BUG FIX: AnimatedNumber stuck at 0
+  * The AnimatedNumber component used framer-motion's useInView with { once: true } to trigger the count-up animation
+  * When components mounted after data loaded (skeleton→real swap), useInView sometimes didn't trigger because the element was already in view on mount
+  * Added a fallback useEffect: if inView is still false after 300ms, set display to the final value directly
+  * This fixes stat cards showing "0" instead of the real value on Trend Spy (and potentially other data-fetching pages)
+
+- FEATURE: Skeleton loading states for data-fetching pages
+  * Created 4 reusable skeleton components in _shared.tsx:
+    - ProductCardSkeleton: matches product card layout (image area, badges, title, price, stats, buttons)
+    - ListRowSkeleton: for list rows (avatar, text lines, badge) — used in Trend Spy, activity feeds, leaderboards
+    - StatCardSkeleton: for stat cards (label, value, delta, icon)
+    - ProductGridSkeleton: staggered grid of ProductCardSkeletons
+  * Updated Products page: replaced basic `Skeleton className="h-64"` with ProductGridSkeleton (detailed card-shaped skeletons with stagger entrance)
+  * Updated Trend Spy page: stats show StatCardSkeleton while loading, trending products list shows ListRowSkeleton rows, added empty state with SearchX icon when no results
+
+- FEATURE: Breadcrumb trail in header
+  * Updated header.tsx: replaced the simple page title with a two-row layout
+  * Row 1 (breadcrumb): Home → [Category] → [Page Name] with chevron separators, clickable Home button
+  * Row 2 (title): page label + plan badge
+  * Category is shown capitalized (Core, Ai, Platforms, Advanced, Growth)
+  * Badge (AI, New, PRO, etc.) shown inline in breadcrumb
+  * Responsive: page name truncates on small screens (max-w-[140px] sm:max-w-[200px])
+  * aria-label="Breadcrumb" for accessibility
+
+- FEATURE: Global content search in command palette
+  * Created /api/search/route.ts — searches across demoProducts, demoLinks, demoCampaigns
+  * Returns matched products (with price/commission), links (with clicks/CVR), campaigns (with status/clicks)
+  * Updated command-palette.tsx: debounced content search (250ms delay) triggers when query ≥ 2 chars
+  * Content results appear below page/action results with a "Content (N)" section header (Database icon, hermes color)
+  * Each content item has a distinct icon: Package (products), Link (links), Megaphone (campaigns) — all with shopee/10 background
+  * "Searching content..." spinner shows while fetching
+  * Content items navigate to their parent page on select (Products, Links, or Campaigns)
+  * Empty state only shows when both page results AND content results are empty (and not searching)
+
+- QA verification:
+  * bun run lint: 0 errors, 0 warnings ✓
+  * tsc --noEmit: 0 errors in src/ ✓
+  * All 36 pages render: 0 failures ✓
+  * Breadcrumb shows "Home → Core → Dashboard" on dashboard, "Home → Ai → Trend Spy" on trend spy ✓
+  * Products page shows detailed skeleton cards while loading ✓
+  * Trend Spy stats show correct values (8 trending products, not 0) ✓
+  * Command palette content search: "safi" returns Safi Balqis product + link with "CONTENT (2)" header ✓
+  * Command palette content search: "tudung" returns Tudung Bawal product + link ✓
+  * 0 console errors, 0 page errors ✓
+
+Stage Summary:
+- The local TheViralFindsMY app now has polished skeleton loading states (detailed card-shaped skeletons matching real content), a breadcrumb trail in the header for navigation context, and global content search in the command palette (searches products, links, campaigns — not just page names).
+- Fixed a bug where AnimatedNumber could get stuck at 0 when components mount after data loads.
+- The app remains stable: 0 lint errors, 0 TypeScript errors in src/, all 36 pages render, 0 console errors.
+- The command palette is now a true power-user tool: page navigation, quick actions, recent pages, AND global content search — all keyboard-navigable.
+- Recommended next-step focus for the next recurring review:
+  1. Wire up the Prisma database (schema still has default User/Post models — add Product, Link, Campaign, Notification models and persist real data).
+  2. Add a "frequently visited" smart section in the command palette (based on visit count, not just recency).
+  3. Add a "what's new" changelog modal that shows on first visit after updates.
+  4. Add skeleton loading to remaining data-fetching pages (Analytics, Earnings, Leaderboard, Hermes Hub).
+  5. Make content search results clickable to open detail modals (e.g., clicking a product result opens the product detail dialog).
+  6. Add search keyboard shortcut hint ("/" to focus search) in the header.
