@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Logo } from '@/components/ui/logo'
 import { cn } from '@/lib/utils'
 
 interface ChangelogEntry {
@@ -128,7 +129,7 @@ export function ChangelogModal() {
           <div className="absolute inset-0 bg-grid opacity-20" />
           <div className="relative">
             <div className="flex items-center gap-2">
-              <Icons.Gift className="size-6" />
+              <Logo size="sm" showText={false} />
               <h2 className="text-xl font-bold">What's New</h2>
             </div>
             <p className="mt-1 text-sm text-white/90">

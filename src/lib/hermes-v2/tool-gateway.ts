@@ -59,6 +59,65 @@ export interface WebPageResult {
 const MAX_TTS_CHARS = 1000
 const MAX_SNIPPET_LENGTH = 500
 
+/**
+ * SSRF allowlist — validate a URL before letting the page_reader tool
+ * fetch it. Blocks internal/private IPs, link-local addresses, the AWS
+ * metadata endpoint, and any non-http(s) protocol. Returns true if the
+ * URL is safe to fetch, false otherwise.
+ *
+ * This is intentionally conservative — it errs on the side of blocking
+ * anything that looks remotely internal. Add explicit allowlist entries
+ * here if a legitimate internal feed needs to be fetched.
+ */
+function validateUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    // Block internal/private IPs and known metadata endpoints.
+    // Note: hostname comparisons are case-insensitive.
+    const blockedHosts = [
+      'localhost',
+      '127.0.0.1',
+      '0.0.0.0',
+      '169.254.169.254', // AWS / GCP / Azure IMDS
+      'metadata.google.internal',
+      '10.',
+      '172.16.',
+      '172.17.',
+      '172.18.',
+      '172.19.',
+      '172.20.',
+      '172.21.',
+      '172.22.',
+      '172.23.',
+      '172.24.',
+      '172.25.',
+      '172.26.',
+      '172.27.',
+      '172.28.',
+      '172.29.',
+      '172.30.',
+      '172.31.',
+      '192.168.',
+      '::1',
+      'fc00:',
+      'fe80:',
+    ]
+    const hostname = parsed.hostname.toLowerCase()
+    for (const blocked of blockedHosts) {
+      if (hostname.startsWith(blocked) || hostname === blocked) {
+        return false
+      }
+    }
+    // Only allow http/https protocols — no file:, ftp:, data:, etc.
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
 export class ToolGateway {
   /**
    * Web Search via z-ai-web-dev-sdk `functions.invoke('web_search', ...)`.
@@ -210,9 +269,19 @@ export class ToolGateway {
    * Web Page Reading via z-ai-web-dev-sdk `functions.invoke('page_reader', ...)`.
    * Returns the page's title, URL, raw HTML, and a best-effort
    * plain-text extraction (HTML tags stripped), or `null` on failure.
+   *
+   * Security: URLs are validated against an SSRF allowlist before being
+   * forwarded to the SDK. Internal/private IPs, link-local addresses,
+   * the AWS metadata endpoint, and non-http(s) protocols are blocked.
    */
   async readWebPage(url: string): Promise<WebPageResult | null> {
     if (!url || typeof url !== 'string') return null
+
+    // SSRF guard — block internal/private URLs before fetching.
+    if (!validateUrl(url)) {
+      logger.warn('SSRF blocked: invalid or internal URL', { url })
+      return null
+    }
 
     try {
       const ZAI = (await import('z-ai-web-dev-sdk')).default

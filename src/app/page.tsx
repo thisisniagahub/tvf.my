@@ -1,5 +1,9 @@
 'use client'
 
+// NOTE: This app uses Zustand-driven SPA routing (not Next.js file routing).
+// URL does not change on page navigation. This is intentional for the SPA experience.
+// For deep-linking/SEO, consider migrating to file-based routing in the future.
+
 import { lazy, Suspense } from 'react'
 import { motion } from 'framer-motion'
 import { useAppStore } from '@/store/app-store'

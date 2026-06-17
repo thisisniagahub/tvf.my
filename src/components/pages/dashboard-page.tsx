@@ -56,7 +56,7 @@ export function DashboardPage() {
   const greeting = hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening'
   const { events: liveEvents, connected } = useLiveNotifications(true)
 
-  const { data: stats, isLoading } = useQuery<DashboardStats>({
+  const { data, isLoading, isError } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
       const res = await fetch('/api/dashboard')
@@ -65,8 +65,9 @@ export function DashboardPage() {
     },
   })
 
-  const earningsData = stats?.earnings ?? []
-  const topProducts = stats?.topProducts ?? []
+  const earningsData = data?.earnings ?? []
+  const topProducts = data?.topProducts ?? []
+  const cardStats = data?.stats ?? { totalEarnings: 5487.32, totalClicks: 2847, conversionRate: 26.4, activeLinks: 42 }
 
   // Merge live events with demo activities — live events appear at the top
   const activities = useMemo<DashboardActivity[]>(() => {
@@ -78,9 +79,21 @@ export function DashboardPage() {
       timestamp: 'just now',
       live: true,
     }))
-    const demo: DashboardActivity[] = (stats?.activities ?? []).map((a) => ({ ...a, live: false }))
+    const demo: DashboardActivity[] = (data?.activities ?? []).map((a) => ({ ...a, live: false }))
     return [...liveMapped, ...demo]
-  }, [liveEvents, stats?.activities])
+  }, [liveEvents, data?.activities])
+
+  if (isError) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center">
+          <Icons.AlertCircle className="mx-auto size-12 text-destructive/40" />
+          <p className="mt-3 text-sm font-medium">Failed to load dashboard data</p>
+          <p className="text-xs text-muted-foreground">Please refresh the page</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -121,10 +134,10 @@ export function DashboardPage() {
 
       {/* Stats grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard index={0} label="Total Earnings" value={formatRM(5487.32)} delta="+12.5% vs last week" deltaType="up" icon={Icons.Wallet} accent="shopee" subtitle="This month" />
-        <StatCard index={1} label="Total Clicks" value={formatNumber(2847)} delta="+8.2% vs last week" deltaType="up" icon={Icons.MousePointerClick} accent="hermes" subtitle="Last 30 days" />
-        <StatCard index={2} label="Conversion Rate" value="26.4%" delta="+3.1% vs last week" deltaType="up" icon={Icons.Target} accent="success" subtitle="Above 8.5% avg" />
-        <StatCard index={3} label="Active Links" value="42" delta="+5 new" deltaType="up" icon={Icons.Link} accent="warning" subtitle="6 paused" />
+        <StatCard index={0} label="Total Earnings" value={formatRM(cardStats.totalEarnings)} delta="+12.5% vs last week" deltaType="up" icon={Icons.Wallet} accent="shopee" subtitle="This month" />
+        <StatCard index={1} label="Total Clicks" value={formatNumber(cardStats.totalClicks)} delta="+8.2% vs last week" deltaType="up" icon={Icons.MousePointerClick} accent="hermes" subtitle="Last 30 days" />
+        <StatCard index={2} label="Conversion Rate" value={`${cardStats.conversionRate}%`} delta="+3.1% vs last week" deltaType="up" icon={Icons.Target} accent="success" subtitle="Above 8.5% avg" />
+        <StatCard index={3} label="Active Links" value={cardStats.activeLinks} delta="+5 new" deltaType="up" icon={Icons.Link} accent="warning" subtitle="6 paused" />
       </div>
 
       {/* Quick actions */}

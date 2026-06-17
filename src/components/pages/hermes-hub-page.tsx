@@ -98,13 +98,13 @@ export function HermesHubPage() {
       }
       setMessages((prev) => [...prev, assistantMsg])
     } catch {
-      const fallback: Message = {
+      const errorMsg: Message = {
         id: `a-${Date.now()}`,
         role: 'assistant',
-        content: "I'm having trouble connecting right now. Based on your affiliate data, here are your top 5 performing products this month: RGB Mechanical Keyboard (12.3% CVR), Tudung Bawal Premium (35.3% CVR), Portable Blender (30.5% CVR), Wardah Lipstick (31.4% CVR), and Safi Balqis Sunblock (24.1% CVR). Your rates are above the Shopee affiliate average of 8.5%.",
+        content: "⚠️ I'm having trouble connecting right now. Please try again in a moment.",
         timestamp: new Date().toISOString(),
       }
-      setMessages((prev) => [...prev, fallback])
+      setMessages((prev) => [...prev, errorMsg])
     } finally {
       setLoading(false)
     }

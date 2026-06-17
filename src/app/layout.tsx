@@ -27,6 +27,10 @@ export const metadata: Metadata = {
     "Manglish content",
   ],
   authors: [{ name: "TheViralFindsMY" }],
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
   openGraph: {
     title: "TheViralFindsMY — Shopee Affiliate Manager Pro",
     description: "AI-powered affiliate manager for Malaysian Shopee affiliates.",

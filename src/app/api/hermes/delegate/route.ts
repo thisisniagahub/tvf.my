@@ -12,20 +12,24 @@ import {
   getSubagents,
   type SubagentConfig,
 } from '@/lib/hermes-v2/delegation-service'
+import { requireUser } from '@/lib/auth'
 
 /**
  * HERMES v2 Subagent Delegation API
  *
- * GET  /api/hermes/delegate?userId=<id>
- *      Lists subagents for the user (defaults to 'demo-user').
+ * GET  /api/hermes/delegate
+ *      Lists subagents for the authenticated user (demo mode → 'demo-user').
  *
  * POST /api/hermes/delegate
  *      Single-task mode:
- *        Body: { goal, context?, toolsets?, maxIterations?, timeout?, userId?, parentId? }
+ *        Body: { goal, context?, toolsets?, maxIterations?, timeout?, parentId? }
  *        Returns { result: DelegationResult }.
  *      Batch mode:
  *        Body: { tasks: SubagentConfig[] }
  *        Returns { results: DelegationResult[] }.
+ *
+ * The user is resolved server-side via `requireUser()` — any `userId`
+ * in the body or query string is ignored to prevent cross-user access.
  *
  * Rate-limited at the AI tier (10 req/min) because each call triggers
  * one or more chat completions.
@@ -42,8 +46,10 @@ export async function GET(request: NextRequest) {
   if (limited) return limited
 
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId') || DEFAULT_USER_ID
+    // Auth: resolve the user server-side — any `userId` query param is
+    // ignored to prevent cross-user access.
+    const user = await requireUser()
+    const userId = user.id || DEFAULT_USER_ID
 
     const subagents = await getSubagents(userId)
 
@@ -87,11 +93,15 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Auth: resolve the user once server-side; the same authenticated
+      // user owns every task in the batch (any per-task `userId` is ignored
+      // to prevent cross-user delegation).
+      const authedUser = await requireUser()
       const tasks: SubagentConfig[] = validation.data.tasks.map((t) => ({
         goal: t.goal,
         context: t.context,
         toolsets: t.toolsets,
-        userId: t.userId ?? DEFAULT_USER_ID,
+        userId: authedUser.id || DEFAULT_USER_ID,
         parentId: t.parentId,
         maxIterations: t.maxIterations,
         timeout: t.timeout,
@@ -116,14 +126,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { goal, context, toolsets, maxIterations, timeout, userId, parentId } =
+    const { goal, context, toolsets, maxIterations, timeout, parentId } =
       validation.data
+
+    const user = await requireUser()
+    const userId = user.id || DEFAULT_USER_ID
 
     const config: SubagentConfig = {
       goal,
       context,
       toolsets,
-      userId: userId ?? DEFAULT_USER_ID,
+      userId,
       parentId,
       maxIterations,
       timeout,

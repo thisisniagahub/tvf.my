@@ -15,6 +15,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { Logo } from '@/components/ui/logo'
 import type { PageId, PageCategory } from '@/lib/types'
 
 const categoryLabels: Record<Exclude<PageCategory, 'pinned'>, string> = {
@@ -141,15 +142,12 @@ export function Sidebar() {
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className="flex h-16 items-center gap-2 border-b px-4">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-shopee-gradient text-white shadow-sm">
-            <Icons.ShoppingBag className="size-5" />
-          </div>
-          {!sidebarCollapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold leading-tight">
-                TheViral<span className="text-shopee">FindsMY</span>
-              </p>
-              <p className="truncate text-[10px] text-muted-foreground">Affiliate Manager Pro</p>
+          {sidebarCollapsed ? (
+            <Logo size="sm" showText={false} />
+          ) : (
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <Logo size="sm" />
+              <p className="truncate pl-1 text-[10px] text-muted-foreground">Affiliate Manager Pro</p>
             </div>
           )}
         </div>

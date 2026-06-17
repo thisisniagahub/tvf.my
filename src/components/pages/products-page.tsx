@@ -31,7 +31,7 @@ export function ProductsPage() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Product | null>(null)
 
-  const { data, isLoading } = useQuery<ProductsResponse>({
+  const { data, isLoading, isError } = useQuery<ProductsResponse>({
     queryKey: ['products', category, search],
     queryFn: async () => {
       const params = new URLSearchParams()
@@ -44,6 +44,18 @@ export function ProductsPage() {
   })
 
   const products = data?.products ?? []
+
+  if (isError) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center">
+          <Icons.AlertCircle className="mx-auto size-12 text-destructive/40" />
+          <p className="mt-3 text-sm font-medium">Failed to load products</p>
+          <p className="text-xs text-muted-foreground">Please refresh the page</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

@@ -25,7 +25,7 @@ export function TrendSpyPage() {
   const { setActivePage } = useAppStore()
   const [activeCat, setActiveCat] = useState<string | null>(null)
 
-  const { data, isLoading } = useQuery<TrendsResponse>({
+  const { data, isLoading, isError } = useQuery<TrendsResponse>({
     queryKey: ['trends'],
     queryFn: async () => {
       const res = await fetch('/api/trends')
@@ -38,6 +38,18 @@ export function TrendSpyPage() {
   const trends = data?.trends ?? []
 
   const filtered = activeCat ? trends.filter((t) => t.category === activeCat) : trends
+
+  if (isError) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center">
+          <Icons.AlertCircle className="mx-auto size-12 text-destructive/40" />
+          <p className="mt-3 text-sm font-medium">Failed to load trend data</p>
+          <p className="text-xs text-muted-foreground">Please refresh the page</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

@@ -36,6 +36,25 @@ vi.mock('@/lib/hermes-v2/skills-engine', () => ({
   },
 }))
 
+// Mock the auth wrapper so the route can resolve a user without a real
+// NextAuth session (getServerSession would throw outside a Next.js runtime).
+vi.mock('@/lib/auth', () => ({
+  requireUser: vi.fn(() =>
+    Promise.resolve({
+      id: 'demo-user',
+      name: 'TheViralFinds',
+      email: 'demo@theviralfindsmy.com',
+    })
+  ),
+  requireAuth: vi.fn(() =>
+    Promise.resolve({
+      id: 'demo-user',
+      name: 'TheViralFinds',
+      email: 'demo@theviralfindsmy.com',
+    })
+  ),
+}))
+
 let ipCounter = 0
 function nextIp() {
   ipCounter += 1

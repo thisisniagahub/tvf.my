@@ -7,20 +7,10 @@
   "outputDirectory": ".next",
   "regions": ["sin1"],
   "functions": {
-    "src/app/api/hermes/chat/route.ts": {
-      "maxDuration": 60
-    },
-    "src/app/api/ai/thumbnails/route.ts": {
-      "maxDuration": 60
-    },
-    "src/app/api/ai/voiceover/route.ts": {
-      "maxDuration": 60
-    },
-    "src/app/api/agent/execute/route.ts": {
-      "maxDuration": 60
-    },
-    "src/app/api/content/script/route.ts": {
-      "maxDuration": 60
-    }
+    "src/app/api/hermes/chat/route.ts": { "maxDuration": 60 },
+    "src/app/api/ai/thumbnails/route.ts": { "maxDuration": 60 },
+    "src/app/api/ai/voiceover/route.ts": { "maxDuration": 60 },
+    "src/app/api/agent/execute/route.ts": { "maxDuration": 60 },
+    "src/app/api/content/script/route.ts": { "maxDuration": 60 }
   }
 }

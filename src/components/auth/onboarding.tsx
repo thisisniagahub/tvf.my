@@ -7,6 +7,7 @@ import { niches } from '@/lib/demo-data'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Logo } from '@/components/ui/logo'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -83,11 +84,11 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           {/* Step 0: Welcome */}
           {step === 0 && (
             <div className="text-center">
-              <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-shopee-gradient text-white shadow-lg animate-float">
-                <Icons.ShoppingBag className="size-8" />
+              <div className="mx-auto mb-4 flex justify-center animate-float">
+                <Logo size="lg" showText={false} />
               </div>
               <h1 className="text-2xl font-bold md:text-3xl">
-                Welcome to TheViralFindsMY, {user?.name ?? 'Demo'}!
+                Welcome to <span className="text-foreground">The</span><span className="text-shopee">Viral</span><span className="text-foreground">Finds</span>, {user?.name ?? 'Demo'}!
               </h1>
               <p className="mt-2 text-muted-foreground">
                 Let&apos;s get you set up in just a few steps. This won&apos;t take long.

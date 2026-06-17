@@ -2,17 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger, handleApiError } from '@/lib/logger'
 import { validateInput, hermesChatSchema } from '@/lib/validation'
-import type { ChatMessage } from '@/lib/types'
 import { memoryService } from '@/lib/hermes-v2/memory-service'
 import { skillsEngine } from '@/lib/hermes-v2/skills-engine'
-
-/** Shape of an inbound HERMES chat request body. */
-interface HermesChatRequestBody {
-  message: string
-  history?: Pick<ChatMessage, 'role' | 'content'>[]
-  /** Optional user id; defaults to the demo account. */
-  userId?: string
-}
+import { requireUser } from '@/lib/auth'
 
 const DEFAULT_USER_ID = 'demo-user'
 
@@ -169,8 +161,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: validation.status })
     }
     const { message, history } = validation.data
-    const userId =
-      (body as HermesChatRequestBody).userId?.trim() || DEFAULT_USER_ID
+    // Auth: resolve the user server-side so the client cannot impersonate
+    // another user by passing a `userId` in the body. Falls back to the
+    // demo account when no session is present (demo mode).
+    const user = await requireUser()
+    const userId = user.id || DEFAULT_USER_ID
 
     // ============== Pre-AI: build memory + skills context ==============
     // Both calls are best-effort — a failure here should not block the

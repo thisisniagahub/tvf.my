@@ -45,6 +45,7 @@ import { McpSections } from './mcp-sections'
 import { useAppStore } from '@/store/app-store'
 import { formatRM } from '@/lib/demo-data'
 import { cn } from '@/lib/utils'
+import { Logo } from '@/components/ui/logo'
 import { toast } from 'sonner'
 
 const niches = [
@@ -636,11 +637,11 @@ export function SettingsPage() {
                 {/* Mini dashboard mockup */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="flex size-7 items-center justify-center rounded-lg bg-shopee-gradient text-white">
-                      <Icons.ShoppingBag className="size-4" />
-                    </div>
+                    <Logo size="sm" showText={false} />
                     <span className={cn('text-sm font-bold', theme === 'dark' ? 'text-white' : 'text-foreground')}>
-                      TheViral<span className="text-shopee">FindsMY</span>
+                      <span className={theme === 'dark' ? 'text-white' : 'text-foreground'}>The</span>
+                      <span className="text-shopee">Viral</span>
+                      <span className={theme === 'dark' ? 'text-white' : 'text-foreground'}>Finds</span>
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 rounded-full bg-success/10 px-2 py-0.5">
@@ -826,12 +827,12 @@ export function SettingsPage() {
           <TabsContent value="about" className="mt-0 space-y-6">
             <SectionCard title="Application" description="About TheViralFindsMY" icon={Icons.Info}>
               <div className="flex items-center gap-4 py-2">
-                <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-shopee-gradient text-white shadow-md">
-                  <Icons.ShoppingBag className="size-7" />
-                </div>
+                <Logo size="lg" showText={false} />
                 <div className="flex-1">
                   <h3 className="text-lg font-bold">
-                    TheViral<span className="text-shopee">FindsMY</span>
+                    <span className="text-foreground">The</span>
+                    <span className="text-shopee">Viral</span>
+                    <span className="text-foreground">Finds</span>
                   </h3>
                   <p className="text-xs text-muted-foreground">Shopee Affiliate Manager Pro</p>
                   <div className="mt-1 flex items-center gap-2">

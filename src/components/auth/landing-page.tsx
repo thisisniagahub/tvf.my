@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Logo } from '@/components/ui/logo'
 import { toast } from 'sonner'
 
 const pricingTiers = [
@@ -77,14 +78,7 @@ export function LandingPage() {
       {/* Nav */}
       <nav className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-8">
-          <div className="flex items-center gap-2">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-shopee-gradient text-white shadow-sm">
-              <Icons.ShoppingBag className="size-5" />
-            </div>
-            <span className="text-lg font-bold">
-              TheViral<span className="text-shopee">FindsMY</span>
-            </span>
-          </div>
+          <Logo size="md" className="text-lg" />
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="hidden sm:inline-flex">
               Privacy
@@ -147,10 +141,14 @@ export function LandingPage() {
             <Card className="w-full max-w-md border-border/60 shadow-xl">
               <CardContent className="p-6 md:p-8">
                 <div className="mb-6 text-center">
-                  <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-xl bg-shopee-gradient text-white shadow-md animate-float">
-                    <Icons.ShoppingBag className="size-6" />
+                  <div className="mb-3 flex justify-center animate-float">
+                    <Logo size="lg" showText={false} />
                   </div>
-                  <h2 className="text-xl font-bold">TheViralFindsMY</h2>
+                  <h2 className="text-xl font-bold">
+                    <span className="text-foreground">The</span>
+                    <span className="text-shopee">Viral</span>
+                    <span className="text-foreground">Finds</span>
+                  </h2>
                   <p className="text-sm text-muted-foreground">Ready to start earning? 👋</p>
                 </div>
 
@@ -335,12 +333,7 @@ export function LandingPage() {
       {/* Footer */}
       <footer className="border-t py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 md:flex-row md:px-8">
-          <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-shopee-gradient text-white">
-              <Icons.ShoppingBag className="size-4" />
-            </div>
-            <span className="text-sm font-bold">TheViralFindsMY</span>
-          </div>
+          <Logo size="sm" />
           <p className="text-xs text-muted-foreground">
             © 2025 TheViralFindsMY. Built for Malaysian affiliates. 🇲🇾
           </p>
