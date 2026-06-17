@@ -6,18 +6,6 @@
   "installCommand": "bun install",
   "outputDirectory": ".next",
   "regions": ["sin1"],
-  "env": {
-    "NEXTAUTH_URL": "@nextauth-url",
-    "NEXTAUTH_SECRET": "@nextauth-secret",
-    "DATABASE_URL": "@database-url"
-  },
-  "build": {
-    "env": {
-      "NEXTAUTH_SECRET": "@nextauth-secret",
-      "DATABASE_URL": "@database-url",
-      "PRISMA_GENERATE_IN_PATH": "true"
-    }
-  },
   "functions": {
     "src/app/api/hermes/chat/route.ts": {
       "maxDuration": 60
@@ -29,6 +17,9 @@
       "maxDuration": 60
     },
     "src/app/api/agent/execute/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/content/script/route.ts": {
       "maxDuration": 60
     }
   }
