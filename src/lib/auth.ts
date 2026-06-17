@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth-config'
 
 export interface AuthUser {
   id: string
@@ -13,19 +13,21 @@ export interface AuthUser {
  * In production, this should require authentication.
  */
 export async function requireUser(): Promise<AuthUser> {
-  const session = await getServerSession(authOptions)
+  try {
+    const session = await getServerSession(authOptions)
 
-  if (session?.user) {
-    return {
-      id: (session.user as any).id || 'demo-user',
-      name: session.user.name,
-      email: session.user.email,
+    if (session?.user) {
+      return {
+        id: (session.user as any).id || 'demo-user',
+        name: session.user.name,
+        email: session.user.email,
+      }
     }
+  } catch {
+    // If session check fails (e.g., NextAuth not configured), fall back to demo
   }
 
   // Demo mode fallback — allows the app to work without login.
-  // In production, uncomment the following to require auth:
-  // throw new Error('Unauthorized')
   return {
     id: 'demo-user',
     name: 'TheViralFinds',
