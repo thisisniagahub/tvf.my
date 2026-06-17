@@ -1,0 +1,816 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useMemo, useState } from 'react'
+     4→     4→import * as Icons from 'lucide-react'
+     5→     5→import { Card, CardContent } from '@/components/ui/card'
+     6→     6→import { Button } from '@/components/ui/button'
+     7→     7→import { Input } from '@/components/ui/input'
+     8→     8→import { Label } from '@/components/ui/label'
+     9→     9→import { Badge } from '@/components/ui/badge'
+    10→    10→import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+    11→    11→import {
+    12→    12→  Select,
+    13→    13→  SelectContent,
+    14→    14→  SelectItem,
+    15→    15→  SelectTrigger,
+    16→    16→  SelectValue,
+    17→    17→} from '@/components/ui/select'
+    18→    18→import {
+    19→    19→  Table,
+    20→    20→  TableBody,
+    21→    21→  TableCell,
+    22→    22→  TableHead,
+    23→    23→  TableHeader,
+    24→    24→  TableRow,
+    25→    25→} from '@/components/ui/table'
+    26→    26→import {
+    27→    27→  AreaChart,
+    28→    28→  Area,
+    29→    29→  PieChart,
+    30→    30→  Pie,
+    31→    31→  Cell,
+    32→    32→  XAxis,
+    33→    33→  YAxis,
+    34→    34→  CartesianGrid,
+    35→    35→  Tooltip,
+    36→    36→  ResponsiveContainer,
+    37→    37→} from 'recharts'
+    38→    38→import { PageHeader, StatCard, PlatformBadge } from './_shared'
+    39→    39→import { demoEarnings, formatRM, formatNumber } from '@/lib/demo-data'
+    40→    40→import { toast } from 'sonner'
+    41→    41→import { cn } from '@/lib/utils'
+    42→    42→
+    43→    43→type Tab = 'overview' | 'platform' | 'category' | 'withdrawal'
+    44→    44→
+    45→    45→const platformBreakdown = [
+    46→    46→  { platform: 'Shopee', earnings: 38240.5, clicks: 5240, orders: 1342, cvr: 25.6, color: 'var(--shopee)' },
+    47→    47→  { platform: 'TikTok Shop', earnings: 7820.25, clicks: 1840, orders: 312, cvr: 17.0, color: 'var(--hermes)' },
+    48→    48→  { platform: 'Lazada', earnings: 2860.0, clicks: 1154, orders: 236, cvr: 20.5, color: 'var(--success)' },
+    49→    49→]
+    50→    50→
+    51→    51→const categoryBreakdown = [
+    52→    52→  { name: 'Beauty', value: 18420, color: 'var(--shopee)' },
+    53→    53→  { name: 'Fashion', value: 14280, color: 'var(--hermes)' },
+    54→    54→  { name: 'Electronics', value: 9870, color: 'var(--success)' },
+    55→    55→  { name: 'Home', value: 4320, color: 'var(--warning)' },
+    56→    56→  { name: 'Gaming', value: 2030, color: 'hsl(280 70% 55%)' },
+    57→    57→]
+    58→    58→
+    59→    59→const withdrawalHistory = [
+    60→    60→  { id: 'w1', amount: 5000, status: 'completed', method: 'Maybank ●●● 4821', date: '2025-06-01', reference: 'WD-2025-06-001' },
+    61→    61→  { id: 'w2', amount: 3500, status: 'completed', method: 'Maybank ●●● 4821', date: '2025-05-01', reference: 'WD-2025-05-008' },
+    62→    62→  { id: 'w3', amount: 2800, status: 'completed', method: 'CIMB ●●● 9302', date: '2025-04-01', reference: 'WD-2025-04-003' },
+    63→    63→  { id: 'w4', amount: 1234, status: 'pending', method: 'Maybank ●●● 4821', date: '2025-06-28', reference: 'WD-2025-06-014' },
+    64→    64→  { id: 'w5', amount: 1500, status: 'processing', method: 'Maybank ●●● 4821', date: '2025-06-26', reference: 'WD-2025-06-013' },
+    65→    65→]
+    66→    66→
+    67→    67→const bankAccounts = [
+    68→    68→  { id: 'b1', label: 'Maybank ●●● 4821', holder: 'Ahmad bin Ali' },
+    69→    69→  { id: 'b2', label: 'CIMB ●●● 9302', holder: 'Ahmad bin Ali' },
+    70→    70→]
+    71→    71→
+    72→    72→const availableBalance = 5487.32
+    73→    73→const minWithdrawal = 50
+    74→    74→
+    75→    75→export function EarningsPage() {
+    76→    76→  const [tab, setTab] = useState<Tab>('overview')
+    77→    77→  const [withdrawAmount, setWithdrawAmount] = useState('')
+    78→    78→  const [bankAccount, setBankAccount] = useState('b1')
+    79→    79→
+    80→    80→  const totalPlatformEarnings = platformBreakdown.reduce((s, p) => s + p.earnings, 0)
+    81→    81→  const totalCategoryEarnings = categoryBreakdown.reduce((s, c) => s + c.value, 0)
+    82→    82→
+    83→    83→  const earningsData = useMemo(
+    84→    84→    () =>
+    85→    85→      demoEarnings.map((d) => ({
+    86→    86→        date: d.date,
+    87→    87→        earnings: d.earnings,
+    88→    88→        orders: d.orders,
+    89→    89→      })),
+    90→    90→    []
+    91→    91→  )
+    92→    92→
+    93→    93→  function handleWithdraw() {
+    94→    94→    const amount = parseFloat(withdrawAmount)
+    95→    95→    if (!amount || amount <= 0) {
+    96→    96→      toast.error('Enter a valid amount lah')
+    97→    97→      return
+    98→    98→    }
+    99→    99→    if (amount < minWithdrawal) {
+   100→   100→      toast.error(`Minimum withdrawal is ${formatRM(minWithdrawal)}`)
+   101→   101→      return
+   102→   102→    }
+   103→   103→    if (amount > availableBalance) {
+   104→   104→      toast.error('Amount exceeds available balance')
+   105→   105→      return
+   106→   106→    }
+   107→   107→    const bank = bankAccounts.find((b) => b.id === bankAccount)
+   108→   108→    toast.success('Withdrawal requested!', {
+   109→   109→      description: `${formatRM(amount)} to ${bank?.label}. Funds arrive in 1-3 business days.`,
+   110→   110→    })
+   111→   111→    setWithdrawAmount('')
+   112→   112→  }
+   113→   113→
+   114→   114→  function handleQuickAmount(amount: number) {
+   115→   115→    setWithdrawAmount(String(Math.min(amount, availableBalance)))
+   116→   116→  }
+   117→   117→
+   118→   118→  return (
+   119→   119→    <div className="space-y-6">
+   120→   120→      <PageHeader
+   121→   121→        title="Earnings"
+   122→   122→        subtitle="Track commissions, withdrawals and lifetime earnings across all platforms"
+   123→   123→        icon={Icons.Wallet}
+   124→   124→        accent="shopee"
+   125→   125→      >
+   126→   126→        <Button variant="outline" size="sm" onClick={() => toast.info('Generating tax statement...')}>
+   127→   127→          <Icons.FileText className="mr-1 size-4" /> Tax Statement
+   128→   128→        </Button>
+   129→   129→        <Button
+   130→   130→          size="sm"
+   131→   131→          onClick={() => setTab('withdrawal')}
+   132→   132→          className="bg-shopee-gradient hover:opacity-90"
+   133→   133→        >
+   134→   134→          <Icons.ArrowDownToLine className="mr-1 size-4" /> Withdraw
+   135→   135→        </Button>
+   136→   136→      </PageHeader>
+   137→   137→
+   138→   138→      {/* Stat cards */}
+   139→   139→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   140→   140→        <StatCard
+   141→   141→          label="This Month"
+   142→   142→          value={formatRM(5487)}
+   143→   143→          icon={Icons.CalendarDays}
+   144→   144→          accent="shopee"
+   145→   145→          subtitle="June 2025"
+   146→   146→          delta="+12.3% vs May"
+   147→   147→          deltaType="up"
+   148→   148→        />
+   149→   149→        <StatCard
+   150→   150→          label="Last Month"
+   151→   151→          value={formatRM(4890)}
+   152→   152→          icon={Icons.History}
+   153→   153→          accent="hermes"
+   154→   154→          subtitle="May 2025"
+   155→   155→          delta="+8.4% vs April"
+   156→   156→          deltaType="up"
+   157→   157→        />
+   158→   158→        <StatCard
+   159→   159→          label="Pending"
+   160→   160→          value={formatRM(1234)}
+   161→   161→          icon={Icons.Clock}
+   162→   162→          accent="warning"
+   163→   163→          subtitle="Awaiting clearance"
+   164→   164→          delta="Clears in 7 days"
+   165→   165→          deltaType="neutral"
+   166→   166→        />
+   167→   167→        <StatCard
+   168→   168→          label="Lifetime"
+   169→   169→          value={formatRM(48920)}
+   170→   170→          icon={Icons.Trophy}
+   171→   171→          accent="success"
+   172→   172→          subtitle="All-time earnings"
+   173→   173→          delta="RM 100k by Dec 🎯"
+   174→   174→          deltaType="up"
+   175→   175→        />
+   176→   176→      </div>
+   177→   177→
+   178→   178→      {/* Tabs */}
+   179→   179→      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+   180→   180→        <TabsList className="flex-wrap">
+   181→   181→          <TabsTrigger value="overview" className="text-xs">
+   182→   182→            <Icons.LayoutDashboard className="mr-1 size-3.5" /> Overview
+   183→   183→          </TabsTrigger>
+   184→   184→          <TabsTrigger value="platform" className="text-xs">
+   185→   185→            <Icons.Layers className="mr-1 size-3.5" /> By Platform
+   186→   186→          </TabsTrigger>
+   187→   187→          <TabsTrigger value="category" className="text-xs">
+   188→   188→            <Icons.Tags className="mr-1 size-3.5" /> By Category
+   189→   189→          </TabsTrigger>
+   190→   190→          <TabsTrigger value="withdrawal" className="text-xs">
+   191→   191→            <Icons.Banknote className="mr-1 size-3.5" /> Withdrawal
+   192→   192→          </TabsTrigger>
+   193→   193→        </TabsList>
+   194→   194→
+   195→   195→        {/* OVERVIEW TAB */}
+   196→   196→        <TabsContent value="overview" className="mt-4 space-y-4">
+   197→   197→          <div className="grid gap-4 lg:grid-cols-3">
+   198→   198→            {/* Earnings area chart */}
+   199→   199→            <Card className="border-border/60 lg:col-span-2">
+   200→   200→              <div className="flex items-center justify-between border-b p-4">
+   201→   201→                <div className="flex items-center gap-2">
+   202→   202→                  <Icons.TrendingUp className="size-4 text-shopee" />
+   203→   203→                  <div>
+   204→   204→                    <h3 className="text-sm font-semibold">Earnings Trend</h3>
+   205→   205→                    <p className="text-xs text-muted-foreground">Daily earnings — last 30 days</p>
+   206→   206→                  </div>
+   207→   207→                </div>
+   208→   208→                <Badge variant="outline" className="bg-success/5 text-success">
+   209→   209→                  <Icons.TrendingUp className="mr-1 size-3" /> +24% MoM
+   210→   210→                </Badge>
+   211→   211→              </div>
+   212→   212→              <CardContent className="p-4">
+   213→   213→                <ResponsiveContainer width="100%" height={300}>
+   214→   214→                  <AreaChart data={earningsData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+   215→   215→                    <defs>
+   216→   216→                      <linearGradient id="earnGrad" x1="0" y1="0" x2="0" y2="1">
+   217→   217→                        <stop offset="0%" stopColor="var(--shopee)" stopOpacity={0.4} />
+   218→   218→                        <stop offset="100%" stopColor="var(--shopee)" stopOpacity={0} />
+   219→   219→                      </linearGradient>
+   220→   220→                    </defs>
+   221→   221→                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+   222→   222→                    <XAxis
+   223→   223→                      dataKey="date"
+   224→   224→                      tick={{ fontSize: 11 }}
+   225→   225→                      stroke="var(--muted-foreground)"
+   226→   226→                      tickLine={false}
+   227→   227→                      axisLine={false}
+   228→   228→                      interval={4}
+   229→   229→                    />
+   230→   230→                    <YAxis
+   231→   231→                      tick={{ fontSize: 11 }}
+   232→   232→                      stroke="var(--muted-foreground)"
+   233→   233→                      tickLine={false}
+   234→   234→                      axisLine={false}
+   235→   235→                      tickFormatter={(v) => `RM${v}`}
+   236→   236→                    />
+   237→   237→                    <Tooltip
+   238→   238→                      contentStyle={{
+   239→   239→                        background: 'var(--card)',
+   240→   240→                        border: '1px solid var(--border)',
+   241→   241→                        borderRadius: '8px',
+   242→   242→                        fontSize: '12px',
+   243→   243→                      }}
+   244→   244→                      formatter={(v: number) => [formatRM(v), 'Earnings']}
+   245→   245→                    />
+   246→   246→                    <Area
+   247→   247→                      type="monotone"
+   248→   248→                      dataKey="earnings"
+   249→   249→                      stroke="var(--shopee)"
+   250→   250→                      strokeWidth={2.5}
+   251→   251→                      fill="url(#earnGrad)"
+   252→   252→                    />
+   253→   253→                  </AreaChart>
+   254→   254→                </ResponsiveContainer>
+   255→   255→              </CardContent>
+   256→   256→            </Card>
+   257→   257→
+   258→   258→            {/* Withdrawal card */}
+   259→   259→            <Card className="border-shopee/30 bg-gradient-to-br from-shopee/[0.06] to-transparent">
+   260→   260→              <div className="border-b p-4">
+   261→   261→                <div className="flex items-center gap-2">
+   262→   262→                  <Icons.Wallet className="size-4 text-shopee" />
+   263→   263→                  <h3 className="text-sm font-semibold">Available for Withdrawal</h3>
+   264→   264→                </div>
+   265→   265→              </div>
+   266→   266→              <CardContent className="space-y-4 p-5">
+   267→   267→                <div>
+   268→   268→                  <p className="text-xs text-muted-foreground">Current balance</p>
+   269→   269→                  <p className="mt-1 text-4xl font-bold text-shopee">{formatRM(availableBalance)}</p>
+   270→   270→                </div>
+   271→   271→
+   272→   272→                <div className="space-y-2 rounded-lg border border-border/60 bg-card p-3 text-xs">
+   273→   273→                  <div className="flex items-center justify-between">
+   274→   274→                    <span className="flex items-center gap-1.5 text-muted-foreground">
+   275→   275→                      <Icons.Clock className="size-3" /> Pending clearance
+   276→   276→                    </span>
+   277→   277→                    <span className="font-semibold">{formatRM(1234)}</span>
+   278→   278→                  </div>
+   279→   279→                  <div className="flex items-center justify-between">
+   280→   280→                    <span className="flex items-center gap-1.5 text-muted-foreground">
+   281→   281→                      <Icons.CircleDot className="size-3" /> Available now
+   282→   282→                    </span>
+   283→   283→                    <span className="font-semibold text-success">{formatRM(4253.32)}</span>
+   284→   284→                  </div>
+   285→   285→                  <div className="flex items-center justify-between border-t pt-2">
+   286→   286→                    <span className="flex items-center gap-1.5 text-muted-foreground">
+   287→   287→                      <Icons.Trophy className="size-3" /> Lifetime
+   288→   288→                    </span>
+   289→   289→                    <span className="font-semibold">{formatRM(48920)}</span>
+   290→   290→                  </div>
+   291→   291→                </div>
+   292→   292→
+   293→   293→                <Button
+   294→   294→                  className="w-full bg-shopee-gradient hover:opacity-90"
+   295→   295→                  size="lg"
+   296→   296→                  onClick={() => setTab('withdrawal')}
+   297→   297→                >
+   298→   298→                  <Icons.ArrowDownToLine className="mr-1 size-4" /> Withdraw Now
+   299→   299→                </Button>
+   300→   300→
+   301→   301→                <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground">
+   302→   302→                  <Icons.Shield className="size-3" />
+   303→   303→                  Min withdrawal {formatRM(minWithdrawal)} · 1-3 business days
+   304→   304→                </div>
+   305→   305→              </CardContent>
+   306→   306→            </Card>
+   307→   307→          </div>
+   308→   308→
+   309→   309→          {/* Mini stats */}
+   310→   310→          <div className="grid gap-4 sm:grid-cols-3">
+   311→   311→            <Card className="border-border/60">
+   312→   312→              <CardContent className="flex items-center gap-3 p-4">
+   313→   313→                <div className="flex size-10 items-center justify-center rounded-lg bg-success/10 text-success">
+   314→   314→                  <Icons.ArrowUpRight className="size-5" />
+   315→   315→                </div>
+   316→   316→                <div>
+   317→   317→                  <p className="text-xs text-muted-foreground">Best day</p>
+   318→   318→                  <p className="text-sm font-bold">{formatRM(412)}</p>
+   319→   319→                  <p className="text-[10px] text-muted-foreground">Jun 28, 2025</p>
+   320→   320→                </div>
+   321→   321→              </CardContent>
+   322→   322→            </Card>
+   323→   323→            <Card className="border-border/60">
+   324→   324→              <CardContent className="flex items-center gap-3 p-4">
+   325→   325→                <div className="flex size-10 items-center justify-center rounded-lg bg-shopee/10 text-shopee">
+   326→   326→                  <Icons.Calendar className="size-5" />
+   327→   327→                </div>
+   328→   328→                <div>
+   329→   329→                  <p className="text-xs text-muted-foreground">Avg per day</p>
+   330→   330→                  <p className="text-sm font-bold">{formatRM(183)}</p>
+   331→   331→                  <p className="text-[10px] text-muted-foreground">Last 30 days</p>
+   332→   332→                </div>
+   333→   333→              </CardContent>
+   334→   334→            </Card>
+   335→   335→            <Card className="border-border/60">
+   336→   336→              <CardContent className="flex items-center gap-3 p-4">
+   337→   337→                <div className="flex size-10 items-center justify-center rounded-lg bg-hermes/10 text-hermes">
+   338→   338→                  <Icons.Star className="size-5" />
+   339→   339→                </div>
+   340→   340→                <div>
+   341→   341→                  <p className="text-xs text-muted-foreground">Avg per order</p>
+   342→   342→                  <p className="text-sm font-bold">{formatRM(7.42)}</p>
+   343→   343→                  <p className="text-[10px] text-muted-foreground">All-time</p>
+   344→   344→                </div>
+   345→   345→              </CardContent>
+   346→   346→            </Card>
+   347→   347→          </div>
+   348→   348→        </TabsContent>
+   349→   349→
+   350→   350→        {/* BY PLATFORM TAB */}
+   351→   351→        <TabsContent value="platform" className="mt-4 space-y-4">
+   352→   352→          <div className="grid gap-4 sm:grid-cols-3">
+   353→   353→            {platformBreakdown.map((p) => {
+   354→   354→              const sharePct = ((p.earnings / totalPlatformEarnings) * 100).toFixed(1)
+   355→   355→              return (
+   356→   356→                <Card key={p.platform} className="border-border/60 transition-shadow hover:shadow-md">
+   357→   357→                  <CardContent className="p-5">
+   358→   358→                    <div className="flex items-start justify-between">
+   359→   359→                      <PlatformBadge platform={p.platform} />
+   360→   360→                      <span
+   361→   361→                        className="text-lg font-bold"
+   362→   362→                        style={{ color: p.color }}
+   363→   363→                      >
+   364→   364→                        {sharePct}%
+   365→   365→                      </span>
+   366→   366→                    </div>
+   367→   367→                    <p className="mt-3 text-xs text-muted-foreground">Total earnings</p>
+   368→   368→                    <p className="text-2xl font-bold" style={{ color: p.color }}>
+   369→   369→                      {formatRM(p.earnings)}
+   370→   370→                    </p>
+   371→   371→                    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+   372→   372→                      <div>
+   373→   373→                        <p className="text-[10px] text-muted-foreground">Clicks</p>
+   374→   374→                        <p className="text-sm font-semibold">{formatNumber(p.clicks)}</p>
+   375→   375→                      </div>
+   376→   376→                      <div>
+   377→   377→                        <p className="text-[10px] text-muted-foreground">Orders</p>
+   378→   378→                        <p className="text-sm font-semibold">{formatNumber(p.orders)}</p>
+   379→   379→                      </div>
+   380→   380→                      <div>
+   381→   381→                        <p className="text-[10px] text-muted-foreground">CVR</p>
+   382→   382→                        <p className="text-sm font-semibold text-success">{p.cvr}%</p>
+   383→   383→                      </div>
+   384→   384→                    </div>
+   385→   385→                  </CardContent>
+   386→   386→                </Card>
+   387→   387→              )
+   388→   388→            })}
+   389→   389→          </div>
+   390→   390→
+   391→   391→          <Card className="border-border/60">
+   392→   392→            <div className="border-b p-4">
+   393→   393→              <div className="flex items-center gap-2">
+   394→   394→                <Icons.Layers className="size-4 text-hermes" />
+   395→   395→                <div>
+   396→   396→                  <h3 className="text-sm font-semibold">Platform Breakdown</h3>
+   397→   397→                  <p className="text-xs text-muted-foreground">Detailed comparison across platforms</p>
+   398→   398→                </div>
+   399→   399→              </div>
+   400→   400→            </div>
+   401→   401→            <CardContent className="p-0">
+   402→   402→              <Table>
+   403→   403→                <TableHeader>
+   404→   404→                  <TableRow className="bg-muted/30">
+   405→   405→                    <TableHead className="pl-4">Platform</TableHead>
+   406→   406→                    <TableHead className="text-right">Earnings</TableHead>
+   407→   407→                    <TableHead className="text-right">Clicks</TableHead>
+   408→   408→                    <TableHead className="text-right">Orders</TableHead>
+   409→   409→                    <TableHead className="text-right">CVR</TableHead>
+   410→   410→                    <TableHead className="pr-4 text-right">Share</TableHead>
+   411→   411→                  </TableRow>
+   412→   412→                </TableHeader>
+   413→   413→                <TableBody>
+   414→   414→                  {platformBreakdown.map((p) => {
+   415→   415→                    const sharePct = (p.earnings / totalPlatformEarnings) * 100
+   416→   416→                    return (
+   417→   417→                      <TableRow key={p.platform}>
+   418→   418→                        <TableCell className="pl-4">
+   419→   419→                          <div className="flex items-center gap-2">
+   420→   420→                            <span className="size-2.5 rounded-full" style={{ background: p.color }} />
+   421→   421→                            <span className="text-sm font-medium">{p.platform}</span>
+   422→   422→                          </div>
+   423→   423→                        </TableCell>
+   424→   424→                        <TableCell className="text-right text-sm font-bold text-shopee">
+   425→   425→                          {formatRM(p.earnings)}
+   426→   426→                        </TableCell>
+   427→   427→                        <TableCell className="text-right text-sm">{formatNumber(p.clicks)}</TableCell>
+   428→   428→                        <TableCell className="text-right text-sm">{formatNumber(p.orders)}</TableCell>
+   429→   429→                        <TableCell className="text-right text-sm font-semibold text-success">
+   430→   430→                          {p.cvr}%
+   431→   431→                        </TableCell>
+   432→   432→                        <TableCell className="pr-4">
+   433→   433→                          <div className="flex items-center justify-end gap-2">
+   434→   434→                            <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-muted sm:block">
+   435→   435→                              <div
+   436→   436→                                className="h-full rounded-full"
+   437→   437→                                style={{ width: `${sharePct}%`, background: p.color }}
+   438→   438→                              />
+   439→   439→                            </div>
+   440→   440→                            <span className="w-12 text-right text-xs font-semibold">
+   441→   441→                              {sharePct.toFixed(1)}%
+   442→   442→                            </span>
+   443→   443→                          </div>
+   444→   444→                        </TableCell>
+   445→   445→                      </TableRow>
+   446→   446→                    )
+   447→   447→                  })}
+   448→   448→                  <TableRow className="bg-muted/20">
+   449→   449→                    <TableCell className="pl-4 text-sm font-bold">Total</TableCell>
+   450→   450→                    <TableCell className="text-right text-sm font-bold text-shopee">
+   451→   451→                      {formatRM(totalPlatformEarnings)}
+   452→   452→                    </TableCell>
+   453→   453→                    <TableCell className="text-right text-sm font-bold">
+   454→   454→                      {formatNumber(platformBreakdown.reduce((s, p) => s + p.clicks, 0))}
+   455→   455→                    </TableCell>
+   456→   456→                    <TableCell className="text-right text-sm font-bold">
+   457→   457→                      {formatNumber(platformBreakdown.reduce((s, p) => s + p.orders, 0))}
+   458→   458→                    </TableCell>
+   459→   459→                    <TableCell className="text-right text-sm font-bold text-success">
+   460→   460→                      {(
+   461→   461→                        (platformBreakdown.reduce((s, p) => s + p.orders, 0) /
+   462→   462→                          platformBreakdown.reduce((s, p) => s + p.clicks, 0)) *
+   463→   463→                        100
+   464→   464→                      ).toFixed(1)}%
+   465→   465→                    </TableCell>
+   466→   466→                    <TableCell className="pr-4 text-right text-sm font-bold">100%</TableCell>
+   467→   467→                  </TableRow>
+   468→   468→                </TableBody>
+   469→   469→              </Table>
+   470→   470→            </CardContent>
+   471→   471→          </Card>
+   472→   472→        </TabsContent>
+   473→   473→
+   474→   474→        {/* BY CATEGORY TAB */}
+   475→   475→        <TabsContent value="category" className="mt-4 space-y-4">
+   476→   476→          <div className="grid gap-4 lg:grid-cols-2">
+   477→   477→            <Card className="border-border/60">
+   478→   478→              <div className="border-b p-4">
+   479→   479→                <div className="flex items-center gap-2">
+   480→   480→                  <Icons.PieChart className="size-4 text-success" />
+   481→   481→                  <div>
+   482→   482→                    <h3 className="text-sm font-semibold">Earnings by Category</h3>
+   483→   483→                    <p className="text-xs text-muted-foreground">Distribution this month</p>
+   484→   484→                  </div>
+   485→   485→                </div>
+   486→   486→              </div>
+   487→   487→              <CardContent className="p-4">
+   488→   488→                <ResponsiveContainer width="100%" height={260}>
+   489→   489→                  <PieChart>
+   490→   490→                    <Pie
+   491→   491→                      data={categoryBreakdown}
+   492→   492→                      dataKey="value"
+   493→   493→                      nameKey="name"
+   494→   494→                      cx="50%"
+   495→   495→                      cy="50%"
+   496→   496→                      innerRadius={50}
+   497→   497→                      outerRadius={90}
+   498→   498→                      paddingAngle={3}
+   499→   499→                      label={({ name, value }: { name: string; value: number }) =>
+   500→   500→                        `${name} ${((value / totalCategoryEarnings) * 100).toFixed(0)}%`
+   501→   501→                      }
+   502→   502→                      labelLine={false}
+   503→   503→                      style={{ fontSize: '11px' }}
+   504→   504→                    >
+   505→   505→                      {categoryBreakdown.map((entry, i) => (
+   506→   506→                        <Cell key={i} fill={entry.color} />
+   507→   507→                      ))}
+   508→   508→                    </Pie>
+   509→   509→                    <Tooltip
+   510→   510→                      formatter={(v: number) => [formatRM(v), 'Earnings']}
+   511→   511→                      contentStyle={{
+   512→   512→                        background: 'var(--card)',
+   513→   513→                        border: '1px solid var(--border)',
+   514→   514→                        borderRadius: '8px',
+   515→   515→                        fontSize: '12px',
+   516→   516→                      }}
+   517→   517→                    />
+   518→   518→                  </PieChart>
+   519→   519→                </ResponsiveContainer>
+   520→   520→              </CardContent>
+   521→   521→            </Card>
+   522→   522→
+   523→   523→            <Card className="border-border/60">
+   524→   524→              <div className="border-b p-4">
+   525→   525→                <div className="flex items-center gap-2">
+   526→   526→                  <Icons.Tags className="size-4 text-hermes" />
+   527→   527→                  <div>
+   528→   528→                    <h3 className="text-sm font-semibold">Category Breakdown</h3>
+   529→   529→                    <p className="text-xs text-muted-foreground">Ranked by earnings</p>
+   530→   530→                  </div>
+   531→   531→                </div>
+   532→   532→              </div>
+   533→   533→              <CardContent className="p-4">
+   534→   534→                <Table>
+   535→   535→                  <TableHeader>
+   536→   536→                    <TableRow>
+   537→   537→                      <TableHead>Category</TableHead>
+   538→   538→                      <TableHead className="text-right">Earnings</TableHead>
+   539→   539→                      <TableHead className="text-right">Share</TableHead>
+   540→   540→                    </TableRow>
+   541→   541→                  </TableHeader>
+   542→   542→                  <TableBody>
+   543→   543→                    {[...categoryBreakdown]
+   544→   544→                      .sort((a, b) => b.value - a.value)
+   545→   545→                      .map((c) => {
+   546→   546→                        const pct = ((c.value / totalCategoryEarnings) * 100).toFixed(1)
+   547→   547→                        return (
+   548→   548→                          <TableRow key={c.name}>
+   549→   549→                            <TableCell>
+   550→   550→                              <div className="flex items-center gap-2">
+   551→   551→                                <span className="size-2.5 rounded-full" style={{ background: c.color }} />
+   552→   552→                                <span className="text-sm font-medium">{c.name}</span>
+   553→   553→                              </div>
+   554→   554→                            </TableCell>
+   555→   555→                            <TableCell className="text-right text-sm font-bold text-shopee">
+   556→   556→                              {formatRM(c.value)}
+   557→   557→                            </TableCell>
+   558→   558→                            <TableCell className="text-right text-sm text-muted-foreground">
+   559→   559→                              {pct}%
+   560→   560→                            </TableCell>
+   561→   561→                          </TableRow>
+   562→   562→                        )
+   563→   563→                      })}
+   564→   564→                  </TableBody>
+   565→   565→                </Table>
+   566→   566→              </CardContent>
+   567→   567→            </Card>
+   568→   568→          </div>
+   569→   569→        </TabsContent>
+   570→   570→
+   571→   571→        {/* WITHDRAWAL TAB */}
+   572→   572→        <TabsContent value="withdrawal" className="mt-4 space-y-4">
+   573→   573→          <div className="grid gap-4 lg:grid-cols-5">
+   574→   574→            {/* Withdrawal form */}
+   575→   575→            <Card className="border-border/60 lg:col-span-2">
+   576→   576→              <div className="border-b p-4">
+   577→   577→                <div className="flex items-center gap-2">
+   578→   578→                  <Icons.ArrowDownToLine className="size-4 text-shopee" />
+   579→   579→                  <div>
+   580→   580→                    <h3 className="text-sm font-semibold">Request Withdrawal</h3>
+   581→   581→                    <p className="text-xs text-muted-foreground">Funds arrive in 1-3 business days</p>
+   582→   582→                  </div>
+   583→   583→                </div>
+   584→   584→              </div>
+   585→   585→              <CardContent className="space-y-4 p-5">
+   586→   586→                {/* Available balance */}
+   587→   587→                <div className="rounded-lg bg-shopee/[0.06] p-4">
+   588→   588→                  <p className="text-xs text-muted-foreground">Available for withdrawal</p>
+   589→   589→                  <p className="mt-1 text-3xl font-bold text-shopee">{formatRM(availableBalance)}</p>
+   590→   590→                </div>
+   591→   591→
+   592→   592→                {/* Amount */}
+   593→   593→                <div className="space-y-2">
+   594→   594→                  <Label htmlFor="w-amount" className="text-sm font-medium">
+   595→   595→                    Withdrawal Amount (RM)
+   596→   596→                  </Label>
+   597→   597→                  <div className="relative">
+   598→   598→                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
+   599→   599→                      RM
+   600→   600→                    </span>
+   601→   601→                    <Input
+   602→   602→                      id="w-amount"
+   603→   603→                      type="number"
+   604→   604→                      min={0}
+   605→   605→                      step={0.01}
+   606→   606→                      placeholder="0.00"
+   607→   607→                      value={withdrawAmount}
+   608→   608→                      onChange={(e) => setWithdrawAmount(e.target.value)}
+   609→   609→                      className="pl-10 text-lg font-semibold"
+   610→   610→                    />
+   611→   611→                  </div>
+   612→   612→                  <div className="flex flex-wrap gap-1.5">
+   613→   613→                    <Button
+   614→   614→                      type="button"
+   615→   615→                      size="sm"
+   616→   616→                      variant="outline"
+   617→   617→                      onClick={() => handleQuickAmount(500)}
+   618→   618→                    >
+   619→   619→                      {formatRM(500)}
+   620→   620→                    </Button>
+   621→   621→                    <Button
+   622→   622→                      type="button"
+   623→   623→                      size="sm"
+   624→   624→                      variant="outline"
+   625→   625→                      onClick={() => handleQuickAmount(1000)}
+   626→   626→                    >
+   627→   627→                      {formatRM(1000)}
+   628→   628→                    </Button>
+   629→   629→                    <Button
+   630→   630→                      type="button"
+   631→   631→                      size="sm"
+   632→   632→                      variant="outline"
+   633→   633→                      onClick={() => handleQuickAmount(2500)}
+   634→   634→                    >
+   635→   635→                      {formatRM(2500)}
+   636→   636→                    </Button>
+   637→   637→                    <Button
+   638→   638→                      type="button"
+   639→   639→                      size="sm"
+   640→   640→                      variant="outline"
+   641→   641→                      onClick={() => handleQuickAmount(availableBalance)}
+   642→   642→                      className="text-shopee"
+   643→   643→                    >
+   644→   644→                      Max
+   645→   645→                    </Button>
+   646→   646→                  </div>
+   647→   647→                </div>
+   648→   648→
+   649→   649→                {/* Bank account */}
+   650→   650→                <div className="space-y-2">
+   651→   651→                  <Label htmlFor="w-bank" className="text-sm font-medium">
+   652→   652→                    Bank Account
+   653→   653→                  </Label>
+   654→   654→                  <Select value={bankAccount} onValueChange={setBankAccount}>
+   655→   655→                    <SelectTrigger id="w-bank" className="w-full">
+   656→   656→                      <SelectValue />
+   657→   657→                    </SelectTrigger>
+   658→   658→                    <SelectContent>
+   659→   659→                      {bankAccounts.map((b) => (
+   660→   660→                        <SelectItem key={b.id} value={b.id}>
+   661→   661→                          <div className="flex items-center gap-2">
+   662→   662→                            <Icons.Landmark className="size-3.5" />
+   663→   663→                            <span>{b.label}</span>
+   664→   664→                            <span className="text-xs text-muted-foreground">· {b.holder}</span>
+   665→   665→                          </div>
+   666→   666→                        </SelectItem>
+   667→   667→                      ))}
+   668→   668→                      <SelectItem value="add-new">
+   669→   669→                        <span className="flex items-center gap-2 text-shopee">
+   670→   670→                          <Icons.Plus className="size-3.5" /> Add new bank account
+   671→   671→                        </span>
+   672→   672→                      </SelectItem>
+   673→   673→                    </SelectContent>
+   674→   674→                  </Select>
+   675→   675→                </div>
+   676→   676→
+   677→   677→                {/* Summary */}
+   678→   678→                {withdrawAmount && parseFloat(withdrawAmount) > 0 && (
+   679→   679→                  <div className="space-y-1.5 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+   680→   680→                    <div className="flex items-center justify-between">
+   681→   681→                      <span className="text-muted-foreground">Withdrawal amount</span>
+   682→   682→                      <span className="font-semibold">{formatRM(parseFloat(withdrawAmount) || 0)}</span>
+   683→   683→                    </div>
+   684→   684→                    <div className="flex items-center justify-between">
+   685→   685→                      <span className="text-muted-foreground">Processing fee</span>
+   686→   686→                      <span className="font-semibold text-success">FREE</span>
+   687→   687→                    </div>
+   688→   688→                    <div className="flex items-center justify-between border-t pt-1.5">
+   689→   689→                      <span className="font-medium">You receive</span>
+   690→   690→                      <span className="font-bold text-shopee">
+   691→   691→                        {formatRM(parseFloat(withdrawAmount) || 0)}
+   692→   692→                      </span>
+   693→   693→                    </div>
+   694→   694→                  </div>
+   695→   695→                )}
+   696→   696→
+   697→   697→                <Button
+   698→   698→                  className="w-full bg-shopee-gradient hover:opacity-90"
+   699→   699→                  size="lg"
+   700→   700→                  onClick={handleWithdraw}
+   701→   701→                >
+   702→   702→                  <Icons.ArrowDownToLine className="mr-1 size-4" /> Request Withdrawal
+   703→   703→                </Button>
+   704→   704→                <p className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
+   705→   705→                  <Icons.Shield className="size-3" />
+   706→   706→                  Min withdrawal {formatRM(minWithdrawal)} · No fees · MY banks only
+   707→   707→                </p>
+   708→   708→              </CardContent>
+   709→   709→            </Card>
+   710→   710→
+   711→   711→            {/* Withdrawal history */}
+   712→   712→            <Card className="border-border/60 lg:col-span-3">
+   713→   713→              <div className="flex items-center justify-between border-b p-4">
+   714→   714→                <div className="flex items-center gap-2">
+   715→   715→                  <Icons.History className="size-4 text-hermes" />
+   716→   716→                  <div>
+   717→   717→                    <h3 className="text-sm font-semibold">Withdrawal History</h3>
+   718→   718→                    <p className="text-xs text-muted-foreground">Last 5 transactions</p>
+   719→   719→                  </div>
+   720→   720→                </div>
+   721→   721→                <Button variant="ghost" size="sm" onClick={() => toast.info('Loading full history...')}>
+   722→   722→                  View All
+   723→   723→                </Button>
+   724→   724→              </div>
+   725→   725→              <CardContent className="p-0">
+   726→   726→                <Table>
+   727→   727→                  <TableHeader>
+   728→   728→                    <TableRow className="bg-muted/30">
+   729→   729→                      <TableHead className="pl-4">Reference</TableHead>
+   730→   730→                      <TableHead className="text-right">Amount</TableHead>
+   731→   731→                      <TableHead>Method</TableHead>
+   732→   732→                      <TableHead>Date</TableHead>
+   733→   733→                      <TableHead className="pr-4">Status</TableHead>
+   734→   734→                    </TableRow>
+   735→   735→                  </TableHeader>
+   736→   736→                  <TableBody>
+   737→   737→                    {withdrawalHistory.map((w) => {
+   738→   738→                      const statusCfg =
+   739→   739→                        w.status === 'completed'
+   740→   740→                          ? { label: 'Completed', cls: 'border-success/30 bg-success/5 text-success', icon: Icons.CircleCheck }
+   741→   741→                          : w.status === 'processing'
+   742→   742→                            ? { label: 'Processing', cls: 'border-hermes/30 bg-hermes/5 text-hermes', icon: Icons.Loader }
+   743→   743→                            : { label: 'Pending', cls: 'border-warning/30 bg-warning/5 text-warning', icon: Icons.Clock }
+   744→   744→                      const StatusIcon = statusCfg.icon
+   745→   745→                      return (
+   746→   746→                        <TableRow key={w.id}>
+   747→   747→                          <TableCell className="pl-4">
+   748→   748→                            <p className="font-mono text-xs font-medium">{w.reference}</p>
+   749→   749→                          </TableCell>
+   750→   750→                          <TableCell className="text-right text-sm font-bold text-shopee">
+   751→   751→                            {formatRM(w.amount)}
+   752→   752→                          </TableCell>
+   753→   753→                          <TableCell>
+   754→   754→                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   755→   755→                              <Icons.Landmark className="size-3.5" />
+   756→   756→                              {w.method}
+   757→   757→                            </div>
+   758→   758→                          </TableCell>
+   759→   759→                          <TableCell className="text-xs text-muted-foreground">{w.date}</TableCell>
+   760→   760→                          <TableCell className="pr-4">
+   761→   761→                            <Badge variant="outline" className={cn('gap-1', statusCfg.cls)}>
+   762→   762→                              <StatusIcon className={cn('size-3', w.status === 'processing' && 'animate-spin')} />
+   763→   763→                              {statusCfg.label}
+   764→   764→                            </Badge>
+   765→   765→                          </TableCell>
+   766→   766→                        </TableRow>
+   767→   767→                      )
+   768→   768→                    })}
+   769→   769→                  </TableBody>
+   770→   770→                </Table>
+   771→   771→              </CardContent>
+   772→   772→            </Card>
+   773→   773→          </div>
+   774→   774→
+   775→   775→          {/* Withdrawal summary */}
+   776→   776→          <div className="grid gap-4 sm:grid-cols-3">
+   777→   777→            <Card className="border-border/60">
+   778→   778→              <CardContent className="flex items-center gap-3 p-4">
+   779→   779→                <div className="flex size-10 items-center justify-center rounded-lg bg-success/10 text-success">
+   780→   780→                  <Icons.CircleCheck className="size-5" />
+   781→   781→                </div>
+   782→   782→                <div>
+   783→   783→                  <p className="text-xs text-muted-foreground">Completed (YTD)</p>
+   784→   784→                  <p className="text-sm font-bold">{formatRM(11300)}</p>
+   785→   785→                </div>
+   786→   786→              </CardContent>
+   787→   787→            </Card>
+   788→   788→            <Card className="border-border/60">
+   789→   789→              <CardContent className="flex items-center gap-3 p-4">
+   790→   790→                <div className="flex size-10 items-center justify-center rounded-lg bg-warning/10 text-warning">
+   791→   791→                  <Icons.Clock className="size-5" />
+   792→   792→                </div>
+   793→   793→                <div>
+   794→   794→                  <p className="text-xs text-muted-foreground">Pending + Processing</p>
+   795→   795→                  <p className="text-sm font-bold">{formatRM(2734)}</p>
+   796→   796→                </div>
+   797→   797→              </CardContent>
+   798→   798→            </Card>
+   799→   799→            <Card className="border-border/60">
+   800→   800→              <CardContent className="flex items-center gap-3 p-4">
+   801→   801→                <div className="flex size-10 items-center justify-center rounded-lg bg-shopee/10 text-shopee">
+   802→   802→                  <Icons.Wallet className="size-5" />
+   803→   803→                </div>
+   804→   804→                <div>
+   805→   805→                  <p className="text-xs text-muted-foreground">Lifetime withdrawn</p>
+   806→   806→                  <p className="text-sm font-bold">{formatRM(43433)}</p>
+   807→   807→                </div>
+   808→   808→              </CardContent>
+   809→   809→            </Card>
+   810→   810→          </div>
+   811→   811→        </TabsContent>
+   812→   812→      </Tabs>
+   813→   813→    </div>
+   814→   814→  )
+   815→   815→}
+   816→   816→

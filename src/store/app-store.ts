@@ -9,6 +9,8 @@ interface AppState {
   user: User | null
   hasSeenOnboarding: boolean
   hasSeenShortcuts: boolean
+  hasSeenChangelog: boolean
+  changelogOpen: boolean
   activePage: PageId
   sidebarCollapsed: boolean
   pinnedPages: PageId[]
@@ -27,6 +29,8 @@ interface AppState {
   setCommandPaletteOpen: (open: boolean) => void
   setLiveNotificationsEnabled: (enabled: boolean) => void
   clearRecentPages: () => void
+  setChangelogOpen: (open: boolean) => void
+  dismissChangelog: () => void
 }
 
 const defaultUser: User = {
@@ -45,6 +49,8 @@ export const useAppStore = create<AppState>()(
       user: null,
       hasSeenOnboarding: false,
       hasSeenShortcuts: false,
+      hasSeenChangelog: false,
+      changelogOpen: false,
       activePage: 'dashboard',
       sidebarCollapsed: false,
       pinnedPages: ['dashboard', 'ai-content', 'earnings'],
@@ -86,6 +92,8 @@ export const useAppStore = create<AppState>()(
       setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
       setLiveNotificationsEnabled: (enabled) => set({ liveNotificationsEnabled: enabled }),
       clearRecentPages: () => set({ recentPages: [] }),
+      setChangelogOpen: (open) => set({ changelogOpen: open }),
+      dismissChangelog: () => set({ hasSeenChangelog: true, changelogOpen: false }),
     }),
     {
       name: 'tvfm-store',
@@ -94,6 +102,7 @@ export const useAppStore = create<AppState>()(
         user: state.user,
         hasSeenOnboarding: state.hasSeenOnboarding,
         hasSeenShortcuts: state.hasSeenShortcuts,
+        hasSeenChangelog: state.hasSeenChangelog,
         activePage: state.activePage,
         sidebarCollapsed: state.sidebarCollapsed,
         pinnedPages: state.pinnedPages,

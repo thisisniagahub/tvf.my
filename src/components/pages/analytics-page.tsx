@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import * as Icons from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -15,7 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { PageHeader, StatCard, PlatformBadge } from './_shared'
+import { PageHeader, StatCard, PlatformBadge, StatCardSkeleton, ListRowSkeleton } from './_shared'
+import { Skeleton } from '@/components/ui/skeleton'
 import { demoEarnings, demoLinks, formatRM, formatNumber } from '@/lib/demo-data'
 import {
   LineChart,
@@ -72,6 +74,15 @@ const topLinks = [...demoLinks]
 
 export function AnalyticsPage() {
   const [range, setRange] = useState<Range>('30d')
+
+  // Simulate async data fetch so skeleton loading states can render on initial mount
+  const { isLoading } = useQuery({
+    queryKey: ['analytics'],
+    queryFn: async () => {
+      await new Promise((r) => setTimeout(r, 500))
+      return true
+    },
+  })
 
   // Generate revenue-over-time data based on selected range
   const revenueData = useMemo(() => {
@@ -155,6 +166,15 @@ export function AnalyticsPage() {
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {isLoading ? (
+          <>
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </>
+        ) : (
+        <>
         <StatCard
           label="Total Revenue"
           value={formatRM(totals.revenue)}
@@ -191,6 +211,8 @@ export function AnalyticsPage() {
           delta="+2.1pp"
           deltaType="up"
         />
+        </>
+        )}
       </div>
 
       {/* Revenue over time (LineChart) */}
@@ -210,6 +232,9 @@ export function AnalyticsPage() {
           </Badge>
         </div>
         <CardContent className="p-4">
+          {isLoading ? (
+            <Skeleton className="h-[280px] w-full rounded-lg" />
+          ) : (
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={revenueData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -260,6 +285,7 @@ export function AnalyticsPage() {
               />
             </LineChart>
           </ResponsiveContainer>
+          )}
           <div className="mt-3 flex flex-wrap items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
               <span className="size-2.5 rounded-full bg-shopee" />
@@ -289,6 +315,9 @@ export function AnalyticsPage() {
             </Button>
           </div>
           <CardContent className="p-4">
+            {isLoading ? (
+              <Skeleton className="h-[280px] w-full rounded-lg" />
+            ) : (
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={clicksByCategory} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -318,6 +347,7 @@ export function AnalyticsPage() {
                 <Bar dataKey="orders" fill="var(--hermes)" radius={[4, 4, 0, 0]} name="orders" />
               </BarChart>
             </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -332,6 +362,9 @@ export function AnalyticsPage() {
             </div>
           </div>
           <CardContent className="p-4">
+            {isLoading ? (
+              <Skeleton className="h-[280px] w-full rounded-lg" />
+            ) : (
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie
@@ -359,6 +392,7 @@ export function AnalyticsPage() {
                 />
               </PieChart>
             </ResponsiveContainer>
+            )}
             <div className="mt-3 space-y-1.5">
               {trafficSources.map((src) => {
                 const pct = ((src.value / totalTraffic) * 100).toFixed(1)
@@ -398,6 +432,13 @@ export function AnalyticsPage() {
           </Button>
         </div>
         <CardContent className="p-0">
+          {isLoading ? (
+            <div className="divide-y">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <ListRowSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30">
@@ -457,6 +498,7 @@ export function AnalyticsPage() {
               })}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -521,7 +563,14 @@ export function AnalyticsPage() {
 
             {/* State progress bars */}
             <div className="space-y-3">
-              {geographicData.map((g) => (
+              {isLoading
+                ? Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="space-y-1">
+                      <Skeleton className="h-3 w-40" />
+                      <Skeleton className="h-2 w-full rounded-full" />
+                    </div>
+                  ))
+                : geographicData.map((g) => (
                 <div key={g.state} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="flex items-center gap-1.5 font-medium">

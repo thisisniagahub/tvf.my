@@ -846,3 +846,144 @@ Stage Summary:
   4. Add skeleton loading to remaining data-fetching pages (Analytics, Earnings, Leaderboard, Hermes Hub).
   5. Make content search results clickable to open detail modals (e.g., clicking a product result opens the product detail dialog).
   6. Add search keyboard shortcut hint ("/" to focus search) in the header.
+
+---
+Task ID: 8-a
+Agent: full-stack-developer (skeleton loading)
+Task: Add skeleton loading states to Analytics, Earnings, and Hermes Hub pages
+
+Work Log:
+- Read worklog.md and the three target page files plus _shared.tsx to understand
+  the existing structure, shared skeleton components (StatCardSkeleton,
+  ListRowSkeleton, ProductCardSkeleton), and the Skeleton UI primitive.
+- Confirmed the project convention (from products-page.tsx / trend-spy-page.tsx)
+  of using `useQuery` from `@tanstack/react-query` with an `isLoading` flag to
+  drive skeleton rendering. The three target pages used static demo data with
+  `useMemo`, so I added a lightweight `useQuery` hook to each that simulates a
+  500ms async fetch (static queryKey so loading only happens on initial mount,
+  preserving the existing instant range/tab-switch behaviour).
+
+- analytics-page.tsx (14 edits):
+  * Added `useQuery` import, extended `_shared` import with `StatCardSkeleton`
+    + `ListRowSkeleton`, added `Skeleton` import.
+  * Added `useQuery({ queryKey: ['analytics'], ... })` → `isLoading`.
+  * Stat cards grid: wrapped 4 `<StatCard>` in `isLoading ? 4×StatCardSkeleton : <>…</>`.
+  * LineChart (Revenue Over Time): wrapped `<ResponsiveContainer height={300}>`
+    in `isLoading ? <Skeleton h-[280px] w-full rounded-lg /> : (…)`.
+  * BarChart (Clicks by Category): wrapped `<ResponsiveContainer height={280}>`
+    with the same skeleton pattern.
+  * PieChart (Traffic Sources): wrapped `<ResponsiveContainer height={200}>`
+    with the same skeleton pattern (legend below stays visible).
+  * Top Performing Links table: replaced `<Table>` with
+    `isLoading ? 5×ListRowSkeleton (in a divide-y div) : <Table>`.
+  * Geographic Distribution progress bars: wrapped the `geographicData.map`
+    in a ternary that renders 6 skeleton bar rows while loading (map dots
+    visualization left intact).
+
+- earnings-page.tsx (14 edits):
+  * Added `useQuery` import, extended `_shared` import with `StatCardSkeleton`
+    + `ListRowSkeleton`, added `Skeleton` import.
+  * Added `useQuery({ queryKey: ['earnings'], ... })` → `isLoading`.
+  * Stat cards grid: wrapped 4 `<StatCard>` in `isLoading ? 4×StatCardSkeleton : <>…</>`.
+  * Earnings AreaChart: wrapped `<ResponsiveContainer height={300}>` with
+    `<Skeleton h-[280px] w-full rounded-lg />`.
+  * Platform Breakdown table: wrapped `platformBreakdown.map` in a ternary
+    rendering 3 skeleton `<TableRow>` (colSpan=6) while loading; the total
+    row is hidden during loading via `{!isLoading && (…)}`.
+  * Category pie chart: wrapped `<ResponsiveContainer height={260}>` with
+    the skeleton pattern.
+  * Category Breakdown table: wrapped `[...categoryBreakdown].sort().map`
+    in a ternary rendering 5 skeleton rows (colSpan=3).
+  * Withdrawal History table: wrapped `withdrawalHistory.map` in a ternary
+    rendering 5 skeleton rows (colSpan=5).
+
+- hermes-hub-page.tsx (5 edits):
+  * Added `useQuery` import, `Skeleton` import, and `ListRowSkeleton` import
+    from `./_shared` (this page previously had no `_shared` import).
+  * Added two `useQuery` hooks: `conversationsLoading` (queryKey
+    `['hermes-conversations']`) and `tasksLoading` (queryKey `['hermes-tasks']`).
+  * Conversations sidebar: wrapped `conversations.map` in a ternary that
+    renders 5 `<ListRowSkeleton>` while loading. Chat area left untouched
+    (it has its own initial message + typing-dot indicator).
+  * Tasks tab: wrapped the inline tasks array `.map` in a ternary that
+    renders 5 custom skeleton rows (icon + two text lines + badge) matching
+    the task card layout.
+
+- Ran `bun run lint` → clean (no errors / warnings).
+- Checked `dev.log` → all recent compilations successful (✓ Compiled),
+  200 responses, no runtime errors.
+
+Stage Summary:
+- All three pages now show skeleton placeholders that match their real content
+  layout during the initial 500ms loading window.
+- Analytics: 4 StatCardSkeleton, 3 chart skeletons (h-[280px]), 5 ListRowSkeleton
+  for the links table, and 6 progress-bar skeletons for geographic distribution.
+- Earnings: 4 StatCardSkeleton, AreaChart skeleton, platform/category/withdrawal
+  table skeleton rows, and category pie chart skeleton.
+- Hermes Hub: 5 ListRowSkeleton in the conversations sidebar + 5 custom task-row
+  skeletons in the Tasks tab.
+- No export names changed, `'use client'` preserved, no existing
+  data/functionality/styling removed, no test files created. Only loading
+  conditional rendering + skeleton imports were added.
+
+---
+
+Task ID: 8 (Main orchestrator round — skeletons, / shortcut, changelog modal)
+Agent: main (Z.ai Code orchestrator)
+Task: QA the local app, then add skeleton loading to Analytics/Earnings/Hermes Hub, "/" keyboard shortcut for header search, and "What's New" changelog modal.
+
+Work Log:
+- Reviewed worklog.md: app stable with skeleton loading (Products/Trend Spy), breadcrumbs, global content search, command palette UX, celebration toasts, theme preview, mobile FAB.
+- QA with agent-browser: all 36 pages render, 0 console errors, 0 lint errors, 0 TS errors in src/. App is stable.
+
+- FEATURE: Skeleton loading on Analytics, Earnings, Hermes Hub (via subagent Task 8-a)
+  * Analytics: 4 StatCardSkeleton, 3 chart Skeleton blocks, 5 ListRowSkeleton for links table, 6 progress-bar skeletons for geographic distribution
+  * Earnings: 4 StatCardSkeleton, AreaChart skeleton, platform/category/withdrawal table skeleton rows, category pie chart skeleton
+  * Hermes Hub: 5 ListRowSkeleton in conversations sidebar, 5 task-row skeletons in Tasks tab
+  * Used existing shared skeleton components (StatCardSkeleton, ListRowSkeleton) + inline Skeleton for charts
+  * Added 500ms simulated useQuery to drive loading state on pages that used static demo data
+
+- FEATURE: "/" keyboard shortcut to focus header search
+  * Added searchInputRef to header.tsx
+  * Global keydown listener: pressing "/" (without modifiers) focuses the search input
+  * Smart input detection: skips when already typing in inputs/textareas/contenteditable
+  * Added "/" kbd badge in the search input (right side) as a visual hint
+  * preventDefault on "/" so it doesn't type into the input
+
+- FEATURE: "What's New" changelog modal
+  * Created /home/z/my-project/src/components/modals/changelog-modal.tsx
+  * 5 changelog entries (v2.0 through v2.4) with version, date, title, type, items list
+  * Each entry has type icon: Sparkles (feature), TrendingUp (improvement), Wrench (fix)
+  * Latest entry (v2.4) highlighted with shopee border + "LATEST" badge
+  * Stagger entrance animation for entries (fade + slide from left, 0.08s delay)
+  * Header banner with shopee gradient, Gift icon, version badge
+  * Two buttons: "View later" (just closes) + "Got it, dismiss" (marks as seen)
+  * Auto-shows 1.5s after first login (when hasSeenChangelog is false)
+  * Added "What's New" button (Gift icon) to header with pulsing dot indicator when unseen
+  * Added hasSeenChangelog + changelogOpen state to Zustand store (persisted)
+  * Wired into page.tsx alongside KeyboardShortcutsModal and CommandPalette
+
+- QA verification:
+  * bun run lint: 0 errors, 0 warnings ✓
+  * tsc --noEmit: 0 errors in src/ ✓
+  * All 36 pages render: 0 failures ✓
+  * "/" shortcut: focuses header search input ✓
+  * Changelog modal: auto-shows after login + onboarding ✓
+  * "What's New" header button: opens changelog manually ✓
+  * "Got it, dismiss" button: marks as seen + closes ✓
+  * Analytics page: renders with skeleton loading ✓
+  * Earnings page: renders with skeleton loading ✓
+  * Hermes Hub: renders with skeleton loading ✓
+  * 0 console errors on fresh reload ✓
+
+Stage Summary:
+- The local TheViralFindsMY app now has skeleton loading on all major data-fetching pages (Products, Trend Spy, Analytics, Earnings, Hermes Hub), a "/" keyboard shortcut to focus header search, and a "What's New" changelog modal that auto-shows on first visit and can be re-opened via the header Gift button.
+- The app remains stable: 0 lint errors, 0 TypeScript errors in src/, all 36 pages render, 0 console errors.
+- The changelog modal provides a polished onboarding-to-feature-discovery flow: users see the latest updates automatically and can revisit them anytime.
+- Recommended next-step focus for the next recurring review:
+  1. Wire up the Prisma database (schema still has default User/Post models — add Product, Link, Campaign, Notification models and persist real data).
+  2. Add a "frequently visited" smart section in the command palette (based on visit count, not just recency).
+  3. Make content search results clickable to open detail modals (e.g., clicking a product result opens the product detail dialog).
+  4. Add skeleton loading to remaining pages (Leaderboard, Campaigns, Links).
+  5. Add a settings page section showing app version + link to changelog.
+  6. Add notification badge count to the "What's New" header button showing number of unseen updates.

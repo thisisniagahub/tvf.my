@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import * as Icons from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -35,7 +36,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { PageHeader, StatCard, PlatformBadge } from './_shared'
+import { PageHeader, StatCard, PlatformBadge, StatCardSkeleton, ListRowSkeleton } from './_shared'
+import { Skeleton } from '@/components/ui/skeleton'
 import { demoEarnings, formatRM, formatNumber } from '@/lib/demo-data'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -76,6 +78,15 @@ export function EarningsPage() {
   const [tab, setTab] = useState<Tab>('overview')
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [bankAccount, setBankAccount] = useState('b1')
+
+  // Simulate async data fetch so skeleton loading states can render on initial mount
+  const { isLoading } = useQuery({
+    queryKey: ['earnings'],
+    queryFn: async () => {
+      await new Promise((r) => setTimeout(r, 500))
+      return true
+    },
+  })
 
   const totalPlatformEarnings = platformBreakdown.reduce((s, p) => s + p.earnings, 0)
   const totalCategoryEarnings = categoryBreakdown.reduce((s, c) => s + c.value, 0)
@@ -137,6 +148,15 @@ export function EarningsPage() {
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {isLoading ? (
+          <>
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </>
+        ) : (
+        <>
         <StatCard
           label="This Month"
           value={formatRM(5487)}
@@ -173,6 +193,8 @@ export function EarningsPage() {
           delta="RM 100k by Dec 🎯"
           deltaType="up"
         />
+        </>
+        )}
       </div>
 
       {/* Tabs */}
@@ -210,6 +232,9 @@ export function EarningsPage() {
                 </Badge>
               </div>
               <CardContent className="p-4">
+                {isLoading ? (
+                  <Skeleton className="h-[280px] w-full rounded-lg" />
+                ) : (
                 <ResponsiveContainer width="100%" height={300}>
                   <AreaChart data={earningsData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                     <defs>
@@ -252,6 +277,7 @@ export function EarningsPage() {
                     />
                   </AreaChart>
                 </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
 
@@ -411,7 +437,15 @@ export function EarningsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {platformBreakdown.map((p) => {
+                  {isLoading
+                    ? Array.from({ length: 3 }).map((_, i) => (
+                        <TableRow key={`sk-${i}`}>
+                          <TableCell className="pl-4" colSpan={6}>
+                            <Skeleton className="h-6 w-full" />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    : platformBreakdown.map((p) => {
                     const sharePct = (p.earnings / totalPlatformEarnings) * 100
                     return (
                       <TableRow key={p.platform}>
@@ -445,6 +479,7 @@ export function EarningsPage() {
                       </TableRow>
                     )
                   })}
+                  {!isLoading && (
                   <TableRow className="bg-muted/20">
                     <TableCell className="pl-4 text-sm font-bold">Total</TableCell>
                     <TableCell className="text-right text-sm font-bold text-shopee">
@@ -465,6 +500,7 @@ export function EarningsPage() {
                     </TableCell>
                     <TableCell className="pr-4 text-right text-sm font-bold">100%</TableCell>
                   </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -485,6 +521,9 @@ export function EarningsPage() {
                 </div>
               </div>
               <CardContent className="p-4">
+                {isLoading ? (
+                  <Skeleton className="h-[280px] w-full rounded-lg" />
+                ) : (
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
                     <Pie
@@ -517,6 +556,7 @@ export function EarningsPage() {
                     />
                   </PieChart>
                 </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
 
@@ -540,7 +580,15 @@ export function EarningsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {[...categoryBreakdown]
+                    {isLoading
+                      ? Array.from({ length: 5 }).map((_, i) => (
+                          <TableRow key={`sk-${i}`}>
+                            <TableCell colSpan={3}>
+                              <Skeleton className="h-6 w-full" />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      : [...categoryBreakdown]
                       .sort((a, b) => b.value - a.value)
                       .map((c) => {
                         const pct = ((c.value / totalCategoryEarnings) * 100).toFixed(1)
@@ -734,7 +782,15 @@ export function EarningsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {withdrawalHistory.map((w) => {
+                    {isLoading
+                      ? Array.from({ length: 5 }).map((_, i) => (
+                          <TableRow key={`sk-${i}`}>
+                            <TableCell className="pl-4" colSpan={5}>
+                              <Skeleton className="h-6 w-full" />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      : withdrawalHistory.map((w) => {
                       const statusCfg =
                         w.status === 'completed'
                           ? { label: 'Completed', cls: 'border-success/30 bg-success/5 text-success', icon: Icons.CircleCheck }

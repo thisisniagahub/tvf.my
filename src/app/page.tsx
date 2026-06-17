@@ -8,6 +8,7 @@ import { LandingPage } from '@/components/auth/landing-page'
 import { OnboardingFlow } from '@/components/auth/onboarding'
 import { KeyboardShortcutsModal } from '@/components/modals/keyboard-shortcuts'
 import { CommandPalette } from '@/components/modals/command-palette'
+import { ChangelogModal } from '@/components/modals/changelog-modal'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { PageId } from '@/lib/types'
 
@@ -131,6 +132,7 @@ export default function Home() {
       </AppShell>
       {!hasSeenShortcuts && <KeyboardShortcutsModal />}
       <CommandPalette />
+      <ChangelogModal />
     </>
   )
 }

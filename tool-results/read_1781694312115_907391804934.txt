@@ -1,0 +1,816 @@
+     1→'use client'
+     2→
+     3→import { useMemo, useState } from 'react'
+     4→import * as Icons from 'lucide-react'
+     5→import { Card, CardContent } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Label } from '@/components/ui/label'
+     9→import { Badge } from '@/components/ui/badge'
+    10→import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+    11→import {
+    12→  Select,
+    13→  SelectContent,
+    14→  SelectItem,
+    15→  SelectTrigger,
+    16→  SelectValue,
+    17→} from '@/components/ui/select'
+    18→import {
+    19→  Table,
+    20→  TableBody,
+    21→  TableCell,
+    22→  TableHead,
+    23→  TableHeader,
+    24→  TableRow,
+    25→} from '@/components/ui/table'
+    26→import {
+    27→  AreaChart,
+    28→  Area,
+    29→  PieChart,
+    30→  Pie,
+    31→  Cell,
+    32→  XAxis,
+    33→  YAxis,
+    34→  CartesianGrid,
+    35→  Tooltip,
+    36→  ResponsiveContainer,
+    37→} from 'recharts'
+    38→import { PageHeader, StatCard, PlatformBadge } from './_shared'
+    39→import { demoEarnings, formatRM, formatNumber } from '@/lib/demo-data'
+    40→import { toast } from 'sonner'
+    41→import { cn } from '@/lib/utils'
+    42→
+    43→type Tab = 'overview' | 'platform' | 'category' | 'withdrawal'
+    44→
+    45→const platformBreakdown = [
+    46→  { platform: 'Shopee', earnings: 38240.5, clicks: 5240, orders: 1342, cvr: 25.6, color: 'var(--shopee)' },
+    47→  { platform: 'TikTok Shop', earnings: 7820.25, clicks: 1840, orders: 312, cvr: 17.0, color: 'var(--hermes)' },
+    48→  { platform: 'Lazada', earnings: 2860.0, clicks: 1154, orders: 236, cvr: 20.5, color: 'var(--success)' },
+    49→]
+    50→
+    51→const categoryBreakdown = [
+    52→  { name: 'Beauty', value: 18420, color: 'var(--shopee)' },
+    53→  { name: 'Fashion', value: 14280, color: 'var(--hermes)' },
+    54→  { name: 'Electronics', value: 9870, color: 'var(--success)' },
+    55→  { name: 'Home', value: 4320, color: 'var(--warning)' },
+    56→  { name: 'Gaming', value: 2030, color: 'hsl(280 70% 55%)' },
+    57→]
+    58→
+    59→const withdrawalHistory = [
+    60→  { id: 'w1', amount: 5000, status: 'completed', method: 'Maybank ●●● 4821', date: '2025-06-01', reference: 'WD-2025-06-001' },
+    61→  { id: 'w2', amount: 3500, status: 'completed', method: 'Maybank ●●● 4821', date: '2025-05-01', reference: 'WD-2025-05-008' },
+    62→  { id: 'w3', amount: 2800, status: 'completed', method: 'CIMB ●●● 9302', date: '2025-04-01', reference: 'WD-2025-04-003' },
+    63→  { id: 'w4', amount: 1234, status: 'pending', method: 'Maybank ●●● 4821', date: '2025-06-28', reference: 'WD-2025-06-014' },
+    64→  { id: 'w5', amount: 1500, status: 'processing', method: 'Maybank ●●● 4821', date: '2025-06-26', reference: 'WD-2025-06-013' },
+    65→]
+    66→
+    67→const bankAccounts = [
+    68→  { id: 'b1', label: 'Maybank ●●● 4821', holder: 'Ahmad bin Ali' },
+    69→  { id: 'b2', label: 'CIMB ●●● 9302', holder: 'Ahmad bin Ali' },
+    70→]
+    71→
+    72→const availableBalance = 5487.32
+    73→const minWithdrawal = 50
+    74→
+    75→export function EarningsPage() {
+    76→  const [tab, setTab] = useState<Tab>('overview')
+    77→  const [withdrawAmount, setWithdrawAmount] = useState('')
+    78→  const [bankAccount, setBankAccount] = useState('b1')
+    79→
+    80→  const totalPlatformEarnings = platformBreakdown.reduce((s, p) => s + p.earnings, 0)
+    81→  const totalCategoryEarnings = categoryBreakdown.reduce((s, c) => s + c.value, 0)
+    82→
+    83→  const earningsData = useMemo(
+    84→    () =>
+    85→      demoEarnings.map((d) => ({
+    86→        date: d.date,
+    87→        earnings: d.earnings,
+    88→        orders: d.orders,
+    89→      })),
+    90→    []
+    91→  )
+    92→
+    93→  function handleWithdraw() {
+    94→    const amount = parseFloat(withdrawAmount)
+    95→    if (!amount || amount <= 0) {
+    96→      toast.error('Enter a valid amount lah')
+    97→      return
+    98→    }
+    99→    if (amount < minWithdrawal) {
+   100→      toast.error(`Minimum withdrawal is ${formatRM(minWithdrawal)}`)
+   101→      return
+   102→    }
+   103→    if (amount > availableBalance) {
+   104→      toast.error('Amount exceeds available balance')
+   105→      return
+   106→    }
+   107→    const bank = bankAccounts.find((b) => b.id === bankAccount)
+   108→    toast.success('Withdrawal requested!', {
+   109→      description: `${formatRM(amount)} to ${bank?.label}. Funds arrive in 1-3 business days.`,
+   110→    })
+   111→    setWithdrawAmount('')
+   112→  }
+   113→
+   114→  function handleQuickAmount(amount: number) {
+   115→    setWithdrawAmount(String(Math.min(amount, availableBalance)))
+   116→  }
+   117→
+   118→  return (
+   119→    <div className="space-y-6">
+   120→      <PageHeader
+   121→        title="Earnings"
+   122→        subtitle="Track commissions, withdrawals and lifetime earnings across all platforms"
+   123→        icon={Icons.Wallet}
+   124→        accent="shopee"
+   125→      >
+   126→        <Button variant="outline" size="sm" onClick={() => toast.info('Generating tax statement...')}>
+   127→          <Icons.FileText className="mr-1 size-4" /> Tax Statement
+   128→        </Button>
+   129→        <Button
+   130→          size="sm"
+   131→          onClick={() => setTab('withdrawal')}
+   132→          className="bg-shopee-gradient hover:opacity-90"
+   133→        >
+   134→          <Icons.ArrowDownToLine className="mr-1 size-4" /> Withdraw
+   135→        </Button>
+   136→      </PageHeader>
+   137→
+   138→      {/* Stat cards */}
+   139→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   140→        <StatCard
+   141→          label="This Month"
+   142→          value={formatRM(5487)}
+   143→          icon={Icons.CalendarDays}
+   144→          accent="shopee"
+   145→          subtitle="June 2025"
+   146→          delta="+12.3% vs May"
+   147→          deltaType="up"
+   148→        />
+   149→        <StatCard
+   150→          label="Last Month"
+   151→          value={formatRM(4890)}
+   152→          icon={Icons.History}
+   153→          accent="hermes"
+   154→          subtitle="May 2025"
+   155→          delta="+8.4% vs April"
+   156→          deltaType="up"
+   157→        />
+   158→        <StatCard
+   159→          label="Pending"
+   160→          value={formatRM(1234)}
+   161→          icon={Icons.Clock}
+   162→          accent="warning"
+   163→          subtitle="Awaiting clearance"
+   164→          delta="Clears in 7 days"
+   165→          deltaType="neutral"
+   166→        />
+   167→        <StatCard
+   168→          label="Lifetime"
+   169→          value={formatRM(48920)}
+   170→          icon={Icons.Trophy}
+   171→          accent="success"
+   172→          subtitle="All-time earnings"
+   173→          delta="RM 100k by Dec 🎯"
+   174→          deltaType="up"
+   175→        />
+   176→      </div>
+   177→
+   178→      {/* Tabs */}
+   179→      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+   180→        <TabsList className="flex-wrap">
+   181→          <TabsTrigger value="overview" className="text-xs">
+   182→            <Icons.LayoutDashboard className="mr-1 size-3.5" /> Overview
+   183→          </TabsTrigger>
+   184→          <TabsTrigger value="platform" className="text-xs">
+   185→            <Icons.Layers className="mr-1 size-3.5" /> By Platform
+   186→          </TabsTrigger>
+   187→          <TabsTrigger value="category" className="text-xs">
+   188→            <Icons.Tags className="mr-1 size-3.5" /> By Category
+   189→          </TabsTrigger>
+   190→          <TabsTrigger value="withdrawal" className="text-xs">
+   191→            <Icons.Banknote className="mr-1 size-3.5" /> Withdrawal
+   192→          </TabsTrigger>
+   193→        </TabsList>
+   194→
+   195→        {/* OVERVIEW TAB */}
+   196→        <TabsContent value="overview" className="mt-4 space-y-4">
+   197→          <div className="grid gap-4 lg:grid-cols-3">
+   198→            {/* Earnings area chart */}
+   199→            <Card className="border-border/60 lg:col-span-2">
+   200→              <div className="flex items-center justify-between border-b p-4">
+   201→                <div className="flex items-center gap-2">
+   202→                  <Icons.TrendingUp className="size-4 text-shopee" />
+   203→                  <div>
+   204→                    <h3 className="text-sm font-semibold">Earnings Trend</h3>
+   205→                    <p className="text-xs text-muted-foreground">Daily earnings — last 30 days</p>
+   206→                  </div>
+   207→                </div>
+   208→                <Badge variant="outline" className="bg-success/5 text-success">
+   209→                  <Icons.TrendingUp className="mr-1 size-3" /> +24% MoM
+   210→                </Badge>
+   211→              </div>
+   212→              <CardContent className="p-4">
+   213→                <ResponsiveContainer width="100%" height={300}>
+   214→                  <AreaChart data={earningsData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+   215→                    <defs>
+   216→                      <linearGradient id="earnGrad" x1="0" y1="0" x2="0" y2="1">
+   217→                        <stop offset="0%" stopColor="var(--shopee)" stopOpacity={0.4} />
+   218→                        <stop offset="100%" stopColor="var(--shopee)" stopOpacity={0} />
+   219→                      </linearGradient>
+   220→                    </defs>
+   221→                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+   222→                    <XAxis
+   223→                      dataKey="date"
+   224→                      tick={{ fontSize: 11 }}
+   225→                      stroke="var(--muted-foreground)"
+   226→                      tickLine={false}
+   227→                      axisLine={false}
+   228→                      interval={4}
+   229→                    />
+   230→                    <YAxis
+   231→                      tick={{ fontSize: 11 }}
+   232→                      stroke="var(--muted-foreground)"
+   233→                      tickLine={false}
+   234→                      axisLine={false}
+   235→                      tickFormatter={(v) => `RM${v}`}
+   236→                    />
+   237→                    <Tooltip
+   238→                      contentStyle={{
+   239→                        background: 'var(--card)',
+   240→                        border: '1px solid var(--border)',
+   241→                        borderRadius: '8px',
+   242→                        fontSize: '12px',
+   243→                      }}
+   244→                      formatter={(v: number) => [formatRM(v), 'Earnings']}
+   245→                    />
+   246→                    <Area
+   247→                      type="monotone"
+   248→                      dataKey="earnings"
+   249→                      stroke="var(--shopee)"
+   250→                      strokeWidth={2.5}
+   251→                      fill="url(#earnGrad)"
+   252→                    />
+   253→                  </AreaChart>
+   254→                </ResponsiveContainer>
+   255→              </CardContent>
+   256→            </Card>
+   257→
+   258→            {/* Withdrawal card */}
+   259→            <Card className="border-shopee/30 bg-gradient-to-br from-shopee/[0.06] to-transparent">
+   260→              <div className="border-b p-4">
+   261→                <div className="flex items-center gap-2">
+   262→                  <Icons.Wallet className="size-4 text-shopee" />
+   263→                  <h3 className="text-sm font-semibold">Available for Withdrawal</h3>
+   264→                </div>
+   265→              </div>
+   266→              <CardContent className="space-y-4 p-5">
+   267→                <div>
+   268→                  <p className="text-xs text-muted-foreground">Current balance</p>
+   269→                  <p className="mt-1 text-4xl font-bold text-shopee">{formatRM(availableBalance)}</p>
+   270→                </div>
+   271→
+   272→                <div className="space-y-2 rounded-lg border border-border/60 bg-card p-3 text-xs">
+   273→                  <div className="flex items-center justify-between">
+   274→                    <span className="flex items-center gap-1.5 text-muted-foreground">
+   275→                      <Icons.Clock className="size-3" /> Pending clearance
+   276→                    </span>
+   277→                    <span className="font-semibold">{formatRM(1234)}</span>
+   278→                  </div>
+   279→                  <div className="flex items-center justify-between">
+   280→                    <span className="flex items-center gap-1.5 text-muted-foreground">
+   281→                      <Icons.CircleDot className="size-3" /> Available now
+   282→                    </span>
+   283→                    <span className="font-semibold text-success">{formatRM(4253.32)}</span>
+   284→                  </div>
+   285→                  <div className="flex items-center justify-between border-t pt-2">
+   286→                    <span className="flex items-center gap-1.5 text-muted-foreground">
+   287→                      <Icons.Trophy className="size-3" /> Lifetime
+   288→                    </span>
+   289→                    <span className="font-semibold">{formatRM(48920)}</span>
+   290→                  </div>
+   291→                </div>
+   292→
+   293→                <Button
+   294→                  className="w-full bg-shopee-gradient hover:opacity-90"
+   295→                  size="lg"
+   296→                  onClick={() => setTab('withdrawal')}
+   297→                >
+   298→                  <Icons.ArrowDownToLine className="mr-1 size-4" /> Withdraw Now
+   299→                </Button>
+   300→
+   301→                <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground">
+   302→                  <Icons.Shield className="size-3" />
+   303→                  Min withdrawal {formatRM(minWithdrawal)} · 1-3 business days
+   304→                </div>
+   305→              </CardContent>
+   306→            </Card>
+   307→          </div>
+   308→
+   309→          {/* Mini stats */}
+   310→          <div className="grid gap-4 sm:grid-cols-3">
+   311→            <Card className="border-border/60">
+   312→              <CardContent className="flex items-center gap-3 p-4">
+   313→                <div className="flex size-10 items-center justify-center rounded-lg bg-success/10 text-success">
+   314→                  <Icons.ArrowUpRight className="size-5" />
+   315→                </div>
+   316→                <div>
+   317→                  <p className="text-xs text-muted-foreground">Best day</p>
+   318→                  <p className="text-sm font-bold">{formatRM(412)}</p>
+   319→                  <p className="text-[10px] text-muted-foreground">Jun 28, 2025</p>
+   320→                </div>
+   321→              </CardContent>
+   322→            </Card>
+   323→            <Card className="border-border/60">
+   324→              <CardContent className="flex items-center gap-3 p-4">
+   325→                <div className="flex size-10 items-center justify-center rounded-lg bg-shopee/10 text-shopee">
+   326→                  <Icons.Calendar className="size-5" />
+   327→                </div>
+   328→                <div>
+   329→                  <p className="text-xs text-muted-foreground">Avg per day</p>
+   330→                  <p className="text-sm font-bold">{formatRM(183)}</p>
+   331→                  <p className="text-[10px] text-muted-foreground">Last 30 days</p>
+   332→                </div>
+   333→              </CardContent>
+   334→            </Card>
+   335→            <Card className="border-border/60">
+   336→              <CardContent className="flex items-center gap-3 p-4">
+   337→                <div className="flex size-10 items-center justify-center rounded-lg bg-hermes/10 text-hermes">
+   338→                  <Icons.Star className="size-5" />
+   339→                </div>
+   340→                <div>
+   341→                  <p className="text-xs text-muted-foreground">Avg per order</p>
+   342→                  <p className="text-sm font-bold">{formatRM(7.42)}</p>
+   343→                  <p className="text-[10px] text-muted-foreground">All-time</p>
+   344→                </div>
+   345→              </CardContent>
+   346→            </Card>
+   347→          </div>
+   348→        </TabsContent>
+   349→
+   350→        {/* BY PLATFORM TAB */}
+   351→        <TabsContent value="platform" className="mt-4 space-y-4">
+   352→          <div className="grid gap-4 sm:grid-cols-3">
+   353→            {platformBreakdown.map((p) => {
+   354→              const sharePct = ((p.earnings / totalPlatformEarnings) * 100).toFixed(1)
+   355→              return (
+   356→                <Card key={p.platform} className="border-border/60 transition-shadow hover:shadow-md">
+   357→                  <CardContent className="p-5">
+   358→                    <div className="flex items-start justify-between">
+   359→                      <PlatformBadge platform={p.platform} />
+   360→                      <span
+   361→                        className="text-lg font-bold"
+   362→                        style={{ color: p.color }}
+   363→                      >
+   364→                        {sharePct}%
+   365→                      </span>
+   366→                    </div>
+   367→                    <p className="mt-3 text-xs text-muted-foreground">Total earnings</p>
+   368→                    <p className="text-2xl font-bold" style={{ color: p.color }}>
+   369→                      {formatRM(p.earnings)}
+   370→                    </p>
+   371→                    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+   372→                      <div>
+   373→                        <p className="text-[10px] text-muted-foreground">Clicks</p>
+   374→                        <p className="text-sm font-semibold">{formatNumber(p.clicks)}</p>
+   375→                      </div>
+   376→                      <div>
+   377→                        <p className="text-[10px] text-muted-foreground">Orders</p>
+   378→                        <p className="text-sm font-semibold">{formatNumber(p.orders)}</p>
+   379→                      </div>
+   380→                      <div>
+   381→                        <p className="text-[10px] text-muted-foreground">CVR</p>
+   382→                        <p className="text-sm font-semibold text-success">{p.cvr}%</p>
+   383→                      </div>
+   384→                    </div>
+   385→                  </CardContent>
+   386→                </Card>
+   387→              )
+   388→            })}
+   389→          </div>
+   390→
+   391→          <Card className="border-border/60">
+   392→            <div className="border-b p-4">
+   393→              <div className="flex items-center gap-2">
+   394→                <Icons.Layers className="size-4 text-hermes" />
+   395→                <div>
+   396→                  <h3 className="text-sm font-semibold">Platform Breakdown</h3>
+   397→                  <p className="text-xs text-muted-foreground">Detailed comparison across platforms</p>
+   398→                </div>
+   399→              </div>
+   400→            </div>
+   401→            <CardContent className="p-0">
+   402→              <Table>
+   403→                <TableHeader>
+   404→                  <TableRow className="bg-muted/30">
+   405→                    <TableHead className="pl-4">Platform</TableHead>
+   406→                    <TableHead className="text-right">Earnings</TableHead>
+   407→                    <TableHead className="text-right">Clicks</TableHead>
+   408→                    <TableHead className="text-right">Orders</TableHead>
+   409→                    <TableHead className="text-right">CVR</TableHead>
+   410→                    <TableHead className="pr-4 text-right">Share</TableHead>
+   411→                  </TableRow>
+   412→                </TableHeader>
+   413→                <TableBody>
+   414→                  {platformBreakdown.map((p) => {
+   415→                    const sharePct = (p.earnings / totalPlatformEarnings) * 100
+   416→                    return (
+   417→                      <TableRow key={p.platform}>
+   418→                        <TableCell className="pl-4">
+   419→                          <div className="flex items-center gap-2">
+   420→                            <span className="size-2.5 rounded-full" style={{ background: p.color }} />
+   421→                            <span className="text-sm font-medium">{p.platform}</span>
+   422→                          </div>
+   423→                        </TableCell>
+   424→                        <TableCell className="text-right text-sm font-bold text-shopee">
+   425→                          {formatRM(p.earnings)}
+   426→                        </TableCell>
+   427→                        <TableCell className="text-right text-sm">{formatNumber(p.clicks)}</TableCell>
+   428→                        <TableCell className="text-right text-sm">{formatNumber(p.orders)}</TableCell>
+   429→                        <TableCell className="text-right text-sm font-semibold text-success">
+   430→                          {p.cvr}%
+   431→                        </TableCell>
+   432→                        <TableCell className="pr-4">
+   433→                          <div className="flex items-center justify-end gap-2">
+   434→                            <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-muted sm:block">
+   435→                              <div
+   436→                                className="h-full rounded-full"
+   437→                                style={{ width: `${sharePct}%`, background: p.color }}
+   438→                              />
+   439→                            </div>
+   440→                            <span className="w-12 text-right text-xs font-semibold">
+   441→                              {sharePct.toFixed(1)}%
+   442→                            </span>
+   443→                          </div>
+   444→                        </TableCell>
+   445→                      </TableRow>
+   446→                    )
+   447→                  })}
+   448→                  <TableRow className="bg-muted/20">
+   449→                    <TableCell className="pl-4 text-sm font-bold">Total</TableCell>
+   450→                    <TableCell className="text-right text-sm font-bold text-shopee">
+   451→                      {formatRM(totalPlatformEarnings)}
+   452→                    </TableCell>
+   453→                    <TableCell className="text-right text-sm font-bold">
+   454→                      {formatNumber(platformBreakdown.reduce((s, p) => s + p.clicks, 0))}
+   455→                    </TableCell>
+   456→                    <TableCell className="text-right text-sm font-bold">
+   457→                      {formatNumber(platformBreakdown.reduce((s, p) => s + p.orders, 0))}
+   458→                    </TableCell>
+   459→                    <TableCell className="text-right text-sm font-bold text-success">
+   460→                      {(
+   461→                        (platformBreakdown.reduce((s, p) => s + p.orders, 0) /
+   462→                          platformBreakdown.reduce((s, p) => s + p.clicks, 0)) *
+   463→                        100
+   464→                      ).toFixed(1)}%
+   465→                    </TableCell>
+   466→                    <TableCell className="pr-4 text-right text-sm font-bold">100%</TableCell>
+   467→                  </TableRow>
+   468→                </TableBody>
+   469→              </Table>
+   470→            </CardContent>
+   471→          </Card>
+   472→        </TabsContent>
+   473→
+   474→        {/* BY CATEGORY TAB */}
+   475→        <TabsContent value="category" className="mt-4 space-y-4">
+   476→          <div className="grid gap-4 lg:grid-cols-2">
+   477→            <Card className="border-border/60">
+   478→              <div className="border-b p-4">
+   479→                <div className="flex items-center gap-2">
+   480→                  <Icons.PieChart className="size-4 text-success" />
+   481→                  <div>
+   482→                    <h3 className="text-sm font-semibold">Earnings by Category</h3>
+   483→                    <p className="text-xs text-muted-foreground">Distribution this month</p>
+   484→                  </div>
+   485→                </div>
+   486→              </div>
+   487→              <CardContent className="p-4">
+   488→                <ResponsiveContainer width="100%" height={260}>
+   489→                  <PieChart>
+   490→                    <Pie
+   491→                      data={categoryBreakdown}
+   492→                      dataKey="value"
+   493→                      nameKey="name"
+   494→                      cx="50%"
+   495→                      cy="50%"
+   496→                      innerRadius={50}
+   497→                      outerRadius={90}
+   498→                      paddingAngle={3}
+   499→                      label={({ name, value }: { name: string; value: number }) =>
+   500→                        `${name} ${((value / totalCategoryEarnings) * 100).toFixed(0)}%`
+   501→                      }
+   502→                      labelLine={false}
+   503→                      style={{ fontSize: '11px' }}
+   504→                    >
+   505→                      {categoryBreakdown.map((entry, i) => (
+   506→                        <Cell key={i} fill={entry.color} />
+   507→                      ))}
+   508→                    </Pie>
+   509→                    <Tooltip
+   510→                      formatter={(v: number) => [formatRM(v), 'Earnings']}
+   511→                      contentStyle={{
+   512→                        background: 'var(--card)',
+   513→                        border: '1px solid var(--border)',
+   514→                        borderRadius: '8px',
+   515→                        fontSize: '12px',
+   516→                      }}
+   517→                    />
+   518→                  </PieChart>
+   519→                </ResponsiveContainer>
+   520→              </CardContent>
+   521→            </Card>
+   522→
+   523→            <Card className="border-border/60">
+   524→              <div className="border-b p-4">
+   525→                <div className="flex items-center gap-2">
+   526→                  <Icons.Tags className="size-4 text-hermes" />
+   527→                  <div>
+   528→                    <h3 className="text-sm font-semibold">Category Breakdown</h3>
+   529→                    <p className="text-xs text-muted-foreground">Ranked by earnings</p>
+   530→                  </div>
+   531→                </div>
+   532→              </div>
+   533→              <CardContent className="p-4">
+   534→                <Table>
+   535→                  <TableHeader>
+   536→                    <TableRow>
+   537→                      <TableHead>Category</TableHead>
+   538→                      <TableHead className="text-right">Earnings</TableHead>
+   539→                      <TableHead className="text-right">Share</TableHead>
+   540→                    </TableRow>
+   541→                  </TableHeader>
+   542→                  <TableBody>
+   543→                    {[...categoryBreakdown]
+   544→                      .sort((a, b) => b.value - a.value)
+   545→                      .map((c) => {
+   546→                        const pct = ((c.value / totalCategoryEarnings) * 100).toFixed(1)
+   547→                        return (
+   548→                          <TableRow key={c.name}>
+   549→                            <TableCell>
+   550→                              <div className="flex items-center gap-2">
+   551→                                <span className="size-2.5 rounded-full" style={{ background: c.color }} />
+   552→                                <span className="text-sm font-medium">{c.name}</span>
+   553→                              </div>
+   554→                            </TableCell>
+   555→                            <TableCell className="text-right text-sm font-bold text-shopee">
+   556→                              {formatRM(c.value)}
+   557→                            </TableCell>
+   558→                            <TableCell className="text-right text-sm text-muted-foreground">
+   559→                              {pct}%
+   560→                            </TableCell>
+   561→                          </TableRow>
+   562→                        )
+   563→                      })}
+   564→                  </TableBody>
+   565→                </Table>
+   566→              </CardContent>
+   567→            </Card>
+   568→          </div>
+   569→        </TabsContent>
+   570→
+   571→        {/* WITHDRAWAL TAB */}
+   572→        <TabsContent value="withdrawal" className="mt-4 space-y-4">
+   573→          <div className="grid gap-4 lg:grid-cols-5">
+   574→            {/* Withdrawal form */}
+   575→            <Card className="border-border/60 lg:col-span-2">
+   576→              <div className="border-b p-4">
+   577→                <div className="flex items-center gap-2">
+   578→                  <Icons.ArrowDownToLine className="size-4 text-shopee" />
+   579→                  <div>
+   580→                    <h3 className="text-sm font-semibold">Request Withdrawal</h3>
+   581→                    <p className="text-xs text-muted-foreground">Funds arrive in 1-3 business days</p>
+   582→                  </div>
+   583→                </div>
+   584→              </div>
+   585→              <CardContent className="space-y-4 p-5">
+   586→                {/* Available balance */}
+   587→                <div className="rounded-lg bg-shopee/[0.06] p-4">
+   588→                  <p className="text-xs text-muted-foreground">Available for withdrawal</p>
+   589→                  <p className="mt-1 text-3xl font-bold text-shopee">{formatRM(availableBalance)}</p>
+   590→                </div>
+   591→
+   592→                {/* Amount */}
+   593→                <div className="space-y-2">
+   594→                  <Label htmlFor="w-amount" className="text-sm font-medium">
+   595→                    Withdrawal Amount (RM)
+   596→                  </Label>
+   597→                  <div className="relative">
+   598→                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
+   599→                      RM
+   600→                    </span>
+   601→                    <Input
+   602→                      id="w-amount"
+   603→                      type="number"
+   604→                      min={0}
+   605→                      step={0.01}
+   606→                      placeholder="0.00"
+   607→                      value={withdrawAmount}
+   608→                      onChange={(e) => setWithdrawAmount(e.target.value)}
+   609→                      className="pl-10 text-lg font-semibold"
+   610→                    />
+   611→                  </div>
+   612→                  <div className="flex flex-wrap gap-1.5">
+   613→                    <Button
+   614→                      type="button"
+   615→                      size="sm"
+   616→                      variant="outline"
+   617→                      onClick={() => handleQuickAmount(500)}
+   618→                    >
+   619→                      {formatRM(500)}
+   620→                    </Button>
+   621→                    <Button
+   622→                      type="button"
+   623→                      size="sm"
+   624→                      variant="outline"
+   625→                      onClick={() => handleQuickAmount(1000)}
+   626→                    >
+   627→                      {formatRM(1000)}
+   628→                    </Button>
+   629→                    <Button
+   630→                      type="button"
+   631→                      size="sm"
+   632→                      variant="outline"
+   633→                      onClick={() => handleQuickAmount(2500)}
+   634→                    >
+   635→                      {formatRM(2500)}
+   636→                    </Button>
+   637→                    <Button
+   638→                      type="button"
+   639→                      size="sm"
+   640→                      variant="outline"
+   641→                      onClick={() => handleQuickAmount(availableBalance)}
+   642→                      className="text-shopee"
+   643→                    >
+   644→                      Max
+   645→                    </Button>
+   646→                  </div>
+   647→                </div>
+   648→
+   649→                {/* Bank account */}
+   650→                <div className="space-y-2">
+   651→                  <Label htmlFor="w-bank" className="text-sm font-medium">
+   652→                    Bank Account
+   653→                  </Label>
+   654→                  <Select value={bankAccount} onValueChange={setBankAccount}>
+   655→                    <SelectTrigger id="w-bank" className="w-full">
+   656→                      <SelectValue />
+   657→                    </SelectTrigger>
+   658→                    <SelectContent>
+   659→                      {bankAccounts.map((b) => (
+   660→                        <SelectItem key={b.id} value={b.id}>
+   661→                          <div className="flex items-center gap-2">
+   662→                            <Icons.Landmark className="size-3.5" />
+   663→                            <span>{b.label}</span>
+   664→                            <span className="text-xs text-muted-foreground">· {b.holder}</span>
+   665→                          </div>
+   666→                        </SelectItem>
+   667→                      ))}
+   668→                      <SelectItem value="add-new">
+   669→                        <span className="flex items-center gap-2 text-shopee">
+   670→                          <Icons.Plus className="size-3.5" /> Add new bank account
+   671→                        </span>
+   672→                      </SelectItem>
+   673→                    </SelectContent>
+   674→                  </Select>
+   675→                </div>
+   676→
+   677→                {/* Summary */}
+   678→                {withdrawAmount && parseFloat(withdrawAmount) > 0 && (
+   679→                  <div className="space-y-1.5 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+   680→                    <div className="flex items-center justify-between">
+   681→                      <span className="text-muted-foreground">Withdrawal amount</span>
+   682→                      <span className="font-semibold">{formatRM(parseFloat(withdrawAmount) || 0)}</span>
+   683→                    </div>
+   684→                    <div className="flex items-center justify-between">
+   685→                      <span className="text-muted-foreground">Processing fee</span>
+   686→                      <span className="font-semibold text-success">FREE</span>
+   687→                    </div>
+   688→                    <div className="flex items-center justify-between border-t pt-1.5">
+   689→                      <span className="font-medium">You receive</span>
+   690→                      <span className="font-bold text-shopee">
+   691→                        {formatRM(parseFloat(withdrawAmount) || 0)}
+   692→                      </span>
+   693→                    </div>
+   694→                  </div>
+   695→                )}
+   696→
+   697→                <Button
+   698→                  className="w-full bg-shopee-gradient hover:opacity-90"
+   699→                  size="lg"
+   700→                  onClick={handleWithdraw}
+   701→                >
+   702→                  <Icons.ArrowDownToLine className="mr-1 size-4" /> Request Withdrawal
+   703→                </Button>
+   704→                <p className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
+   705→                  <Icons.Shield className="size-3" />
+   706→                  Min withdrawal {formatRM(minWithdrawal)} · No fees · MY banks only
+   707→                </p>
+   708→              </CardContent>
+   709→            </Card>
+   710→
+   711→            {/* Withdrawal history */}
+   712→            <Card className="border-border/60 lg:col-span-3">
+   713→              <div className="flex items-center justify-between border-b p-4">
+   714→                <div className="flex items-center gap-2">
+   715→                  <Icons.History className="size-4 text-hermes" />
+   716→                  <div>
+   717→                    <h3 className="text-sm font-semibold">Withdrawal History</h3>
+   718→                    <p className="text-xs text-muted-foreground">Last 5 transactions</p>
+   719→                  </div>
+   720→                </div>
+   721→                <Button variant="ghost" size="sm" onClick={() => toast.info('Loading full history...')}>
+   722→                  View All
+   723→                </Button>
+   724→              </div>
+   725→              <CardContent className="p-0">
+   726→                <Table>
+   727→                  <TableHeader>
+   728→                    <TableRow className="bg-muted/30">
+   729→                      <TableHead className="pl-4">Reference</TableHead>
+   730→                      <TableHead className="text-right">Amount</TableHead>
+   731→                      <TableHead>Method</TableHead>
+   732→                      <TableHead>Date</TableHead>
+   733→                      <TableHead className="pr-4">Status</TableHead>
+   734→                    </TableRow>
+   735→                  </TableHeader>
+   736→                  <TableBody>
+   737→                    {withdrawalHistory.map((w) => {
+   738→                      const statusCfg =
+   739→                        w.status === 'completed'
+   740→                          ? { label: 'Completed', cls: 'border-success/30 bg-success/5 text-success', icon: Icons.CircleCheck }
+   741→                          : w.status === 'processing'
+   742→                            ? { label: 'Processing', cls: 'border-hermes/30 bg-hermes/5 text-hermes', icon: Icons.Loader }
+   743→                            : { label: 'Pending', cls: 'border-warning/30 bg-warning/5 text-warning', icon: Icons.Clock }
+   744→                      const StatusIcon = statusCfg.icon
+   745→                      return (
+   746→                        <TableRow key={w.id}>
+   747→                          <TableCell className="pl-4">
+   748→                            <p className="font-mono text-xs font-medium">{w.reference}</p>
+   749→                          </TableCell>
+   750→                          <TableCell className="text-right text-sm font-bold text-shopee">
+   751→                            {formatRM(w.amount)}
+   752→                          </TableCell>
+   753→                          <TableCell>
+   754→                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   755→                              <Icons.Landmark className="size-3.5" />
+   756→                              {w.method}
+   757→                            </div>
+   758→                          </TableCell>
+   759→                          <TableCell className="text-xs text-muted-foreground">{w.date}</TableCell>
+   760→                          <TableCell className="pr-4">
+   761→                            <Badge variant="outline" className={cn('gap-1', statusCfg.cls)}>
+   762→                              <StatusIcon className={cn('size-3', w.status === 'processing' && 'animate-spin')} />
+   763→                              {statusCfg.label}
+   764→                            </Badge>
+   765→                          </TableCell>
+   766→                        </TableRow>
+   767→                      )
+   768→                    })}
+   769→                  </TableBody>
+   770→                </Table>
+   771→              </CardContent>
+   772→            </Card>
+   773→          </div>
+   774→
+   775→          {/* Withdrawal summary */}
+   776→          <div className="grid gap-4 sm:grid-cols-3">
+   777→            <Card className="border-border/60">
+   778→              <CardContent className="flex items-center gap-3 p-4">
+   779→                <div className="flex size-10 items-center justify-center rounded-lg bg-success/10 text-success">
+   780→                  <Icons.CircleCheck className="size-5" />
+   781→                </div>
+   782→                <div>
+   783→                  <p className="text-xs text-muted-foreground">Completed (YTD)</p>
+   784→                  <p className="text-sm font-bold">{formatRM(11300)}</p>
+   785→                </div>
+   786→              </CardContent>
+   787→            </Card>
+   788→            <Card className="border-border/60">
+   789→              <CardContent className="flex items-center gap-3 p-4">
+   790→                <div className="flex size-10 items-center justify-center rounded-lg bg-warning/10 text-warning">
+   791→                  <Icons.Clock className="size-5" />
+   792→                </div>
+   793→                <div>
+   794→                  <p className="text-xs text-muted-foreground">Pending + Processing</p>
+   795→                  <p className="text-sm font-bold">{formatRM(2734)}</p>
+   796→                </div>
+   797→              </CardContent>
+   798→            </Card>
+   799→            <Card className="border-border/60">
+   800→              <CardContent className="flex items-center gap-3 p-4">
+   801→                <div className="flex size-10 items-center justify-center rounded-lg bg-shopee/10 text-shopee">
+   802→                  <Icons.Wallet className="size-5" />
+   803→                </div>
+   804→                <div>
+   805→                  <p className="text-xs text-muted-foreground">Lifetime withdrawn</p>
+   806→                  <p className="text-sm font-bold">{formatRM(43433)}</p>
+   807→                </div>
+   808→              </CardContent>
+   809→            </Card>
+   810→          </div>
+   811→        </TabsContent>
+   812→      </Tabs>
+   813→    </div>
+   814→  )
+   815→}
+   816→

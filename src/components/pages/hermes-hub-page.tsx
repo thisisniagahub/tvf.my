@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import * as Icons from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,6 +14,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { demoConversations } from '@/lib/demo-data'
 import { toast } from 'sonner'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ListRowSkeleton } from './_shared'
 
 interface Message {
   id: string
@@ -43,6 +46,24 @@ export function HermesHubPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Simulate async loading for conversations sidebar
+  const { isLoading: conversationsLoading } = useQuery({
+    queryKey: ['hermes-conversations'],
+    queryFn: async () => {
+      await new Promise((r) => setTimeout(r, 500))
+      return true
+    },
+  })
+
+  // Simulate async loading for automated tasks
+  const { isLoading: tasksLoading } = useQuery({
+    queryKey: ['hermes-tasks'],
+    queryFn: async () => {
+      await new Promise((r) => setTimeout(r, 500))
+      return true
+    },
+  })
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -143,7 +164,11 @@ export function HermesHubPage() {
                   <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     Conversations
                   </p>
-                  {conversations.map((conv) => (
+                  {conversationsLoading
+                    ? Array.from({ length: 5 }).map((_, i) => (
+                        <ListRowSkeleton key={i} />
+                      ))
+                    : conversations.map((conv) => (
                     <button
                       key={conv.id}
                       onClick={() => setActiveConvId(conv.id)}
@@ -275,7 +300,18 @@ export function HermesHubPage() {
                 <h3 className="text-lg font-semibold">HERMES Automated Tasks</h3>
               </div>
               <div className="space-y-3">
-                {[
+                {tasksLoading
+                  ? Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 rounded-lg border p-3">
+                        <Skeleton className="size-9 shrink-0 rounded-lg" />
+                        <div className="flex-1 space-y-1.5">
+                          <Skeleton className="h-3.5 w-40" />
+                          <Skeleton className="h-3 w-64" />
+                        </div>
+                        <Skeleton className="h-5 w-20 rounded-full" />
+                      </div>
+                    ))
+                  : [
                   { name: 'Daily trend report', desc: 'Generates a summary of trending products every morning at 8 AM', status: 'active', schedule: 'Daily 8:00 AM' },
                   { name: 'Commission XTRA monitor', desc: 'Watches for new XTRA commission offers on your tracked products', status: 'active', schedule: 'Every 30 min' },
                   { name: 'Weekly performance digest', desc: 'Compiles your weekly stats and sends to your email', status: 'active', schedule: 'Mondays 9:00 AM' },

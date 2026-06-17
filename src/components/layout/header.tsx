@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import * as Icons from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useAppStore } from '@/store/app-store'
@@ -28,11 +28,35 @@ import { demoNotifications } from '@/lib/demo-data'
 import { useLiveNotifications } from '@/hooks/use-live-notifications'
 
 export function Header() {
-  const { activePage, user, logout, setActivePage, setCommandPaletteOpen, liveNotificationsEnabled } = useAppStore()
+  const { activePage, user, logout, setActivePage, setCommandPaletteOpen, setChangelogOpen, hasSeenChangelog, liveNotificationsEnabled } = useAppStore()
   const { theme, setTheme } = useTheme()
   const { connected, simulated, events: liveEvents, unreadCount: liveUnread, markAllRead } = useLiveNotifications(liveNotificationsEnabled)
   const [search, setSearch] = useState('')
   const [showHint, setShowHint] = useState(true)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // "/" keyboard shortcut to focus the header search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const target = e.target as HTMLElement
+        // Skip if already typing in an input/textarea/contenteditable
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable ||
+            target.getAttribute('role') === 'textbox')
+        ) {
+          return
+        }
+        e.preventDefault()
+        searchInputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
   const currentItem = navItems.find((i) => i.id === activePage)
   const [now, setNow] = useState(new Date())
@@ -100,11 +124,15 @@ export function Header() {
         <div className="relative">
           <Icons.Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            ref={searchInputRef}
             placeholder="Search links, products, campaigns..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-9 pl-8"
+            className="h-9 pl-8 pr-8"
           />
+          <kbd className="absolute right-2 top-1/2 -translate-y-1/2 rounded border bg-muted px-1 py-0.5 text-[10px] font-semibold text-muted-foreground">
+            /
+          </kbd>
         </div>
       </form>
 
@@ -233,6 +261,23 @@ export function Header() {
         title="Toggle dark mode"
       >
         {theme === 'dark' ? <Icons.Sun className="size-5" /> : <Icons.Moon className="size-5" />}
+      </Button>
+
+      {/* What's New / Changelog */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative hidden md:inline-flex"
+        title="What's New"
+        onClick={() => setChangelogOpen(true)}
+      >
+        <Icons.Gift className="size-5" />
+        {!hasSeenChangelog && (
+          <span className="absolute -right-0.5 -top-0.5 flex size-2.5">
+            <span className="absolute inline-flex size-2.5 animate-ping rounded-full bg-shopee/60" />
+            <span className="relative inline-flex size-2.5 rounded-full bg-shopee" />
+          </span>
+        )}
       </Button>
 
       {/* Keyboard shortcuts */}
