@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import * as Icons from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
 import { useAppStore } from '@/store/app-store'
 import { navItems } from '@/lib/demo-data'
@@ -32,8 +33,15 @@ export function Header() {
   const { theme, setTheme } = useTheme()
   const { connected, simulated, events: liveEvents, unreadCount: liveUnread, markAllRead } = useLiveNotifications(liveNotificationsEnabled, notificationSoundEnabled)
   const [search, setSearch] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
   const [showHint, setShowHint] = useState(true)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  // Bell-wiggle state — uses the documented "adjusting state during render"
+  // pattern. prevUnread stores the previous unread count so we can detect
+  // increases; bellKey bumps to force a remount of the bell wrapper (which
+  // replays the CSS animation class).
+  const [prevUnread, setPrevUnread] = useState(0)
+  const [bellKey, setBellKey] = useState(0)
 
   // "/" keyboard shortcut to focus the header search
   useEffect(() => {
@@ -67,6 +75,17 @@ export function Header() {
 
   const unreadCount = demoNotifications.filter((n) => !n.read).length + liveUnread
 
+  // Replay the bell-wiggle animation when unreadCount increases.
+  // This is the documented "adjusting state during render" pattern from
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  // Calling setState during render (only for the same component, only to
+  // synchronise with a derived value) is allowed by React and avoids the
+  // cascading-render warning that an effect would trigger.
+  if (unreadCount > prevUnread) {
+    setPrevUnread(unreadCount)
+    setBellKey((k) => k + 1)
+  }
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (!search.trim()) return
@@ -95,9 +114,22 @@ export function Header() {
           </button>
           {currentItem && (
             <>
-              <Icons.ChevronRight className="size-3 text-muted-foreground/50" />
-              <span className="text-muted-foreground/80 capitalize">{currentItem.category}</span>
-              <Icons.ChevronRight className="size-3 text-muted-foreground/50" />
+              {/* Separator fade-in animation */}
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-muted-foreground/50"
+              >
+                <Icons.ChevronRight className="size-3" />
+              </motion.span>
+              <span className="text-muted-foreground/80 capitalize transition-colors hover:text-shopee cursor-default">{currentItem.category}</span>
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-muted-foreground/50"
+              >
+                <Icons.ChevronRight className="size-3" />
+              </motion.span>
               <span className="font-medium text-foreground truncate max-w-[140px] sm:max-w-[200px]">
                 {currentItem.label}
               </span>
@@ -119,26 +151,46 @@ export function Header() {
         </div>
       </div>
 
-      {/* Search */}
-      <form onSubmit={handleSearch} className="ml-auto hidden md:block w-full max-w-xs">
-        <div className="relative">
-          <Icons.Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      {/* Search — focus expands the input width + fades the keyboard hint */}
+      <form onSubmit={handleSearch} className="ml-auto hidden md:block">
+        <div className="relative transition-all duration-300" style={{ width: searchFocused ? 360 : 280 }}>
+          <Icons.Search className={`absolute left-2.5 top-1/2 size-4 -translate-y-1/2 transition-colors ${searchFocused ? 'text-shopee' : 'text-muted-foreground'}`} />
           <Input
             ref={searchInputRef}
             placeholder="Search links, products, campaigns..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-9 pl-8 pr-8"
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            className="h-9 pl-8 pr-10 transition-shadow focus-visible:glow-shopee focus-visible:border-shopee/40"
           />
-          <kbd className="absolute right-2 top-1/2 -translate-y-1/2 rounded border bg-muted px-1 py-0.5 text-[10px] font-semibold text-muted-foreground">
-            /
-          </kbd>
+          {/* Keyboard shortcut hint — fades out when focused */}
+          <AnimatePresence>
+            {!searchFocused && showHint && (
+              <motion.kbd
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.2 }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded border bg-muted px-1 py-0.5 text-[10px] font-semibold text-muted-foreground"
+              >
+                /
+              </motion.kbd>
+            )}
+          </AnimatePresence>
         </div>
       </form>
 
-      {/* Real-time status */}
+      {/* Real-time status — pulsing ring + gradient bg */}
       <div className="ml-auto md:ml-0 flex items-center gap-1">
-        <div className={cn('relative flex items-center gap-1.5 rounded-full px-2.5 py-1', connected ? (simulated ? 'bg-hermes/10' : 'bg-success/10') : 'bg-muted')}>
+        <div className={cn(
+          'relative flex items-center gap-1.5 rounded-full px-2.5 py-1 transition-all',
+          connected
+            ? (simulated
+                ? 'bg-gradient-to-r from-hermes/10 to-hermes/5 shadow-[0_0_12px_rgba(139,92,246,0.25)]'
+                : 'bg-gradient-to-r from-success/10 to-success/5 shadow-[0_0_12px_rgba(34,197,94,0.25)]')
+            : 'bg-muted',
+        )}>
           <span className="relative flex size-2">
             {connected && (
               <span className={cn('pulse-ring absolute inline-flex size-2 rounded-full', simulated ? 'text-hermes/60' : 'text-success/60')} />
@@ -151,13 +203,18 @@ export function Header() {
         </div>
       </div>
 
-      {/* Notifications */}
+      {/* Notifications — bell wiggles when a new event arrives */}
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className="relative" title="View notifications">
-            <Icons.Bell className="size-5" />
+            {/* key={bellKey} forces a remount → replays the bell-wiggle animation
+                whenever a new notification arrives. The class is only applied
+                after the first unread bump (bellKey > 0). */}
+            <span key={bellKey} className={cn('inline-flex', bellKey > 0 && 'animate-bell-wiggle')}>
+              <Icons.Bell className="size-5" />
+            </span>
             {unreadCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-shopee text-[9px] font-bold text-white">
+              <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-shopee-gradient text-[9px] font-bold text-white shadow-[0_0_10px_rgba(238,77,45,0.5)]">
                 {unreadCount}
               </span>
             )}
@@ -253,21 +310,49 @@ export function Header() {
         </PopoverContent>
       </Popover>
 
-      {/* Theme toggle */}
+      {/* Theme toggle — rotating sun/moon + glow on hover */}
       <Button
         variant="ghost"
         size="icon"
         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         title="Toggle dark mode"
+        className="group transition-shadow hover:glow-hermes"
       >
-        {theme === 'dark' ? <Icons.Sun className="size-5" /> : <Icons.Moon className="size-5" />}
+        <AnimatePresence mode="wait" initial={false}>
+          {theme === 'dark' ? (
+            <motion.span
+              key="sun"
+              initial={{ rotate: -90, opacity: 0, scale: 0.6 }}
+              animate={{ rotate: 0, opacity: 1, scale: 1 }}
+              exit={{ rotate: 90, opacity: 0, scale: 0.6 }}
+              transition={{ duration: 0.25 }}
+              className="inline-flex"
+            >
+              <Icons.Sun className="size-5" />
+            </motion.span>
+          ) : (
+            <motion.span
+              key="moon"
+              initial={{ rotate: 90, opacity: 0, scale: 0.6 }}
+              animate={{ rotate: 0, opacity: 1, scale: 1 }}
+              exit={{ rotate: -90, opacity: 0, scale: 0.6 }}
+              transition={{ duration: 0.25 }}
+              className="inline-flex"
+            >
+              <Icons.Moon className="size-5" />
+            </motion.span>
+          )}
+        </AnimatePresence>
       </Button>
 
-      {/* Focus Mode toggle */}
+      {/* Focus Mode toggle — pulse + gradient bg when active */}
       <Button
         variant="ghost"
         size="icon"
-        className={cn('hidden md:inline-flex', focusMode && 'bg-hermes/10 text-hermes')}
+        className={cn(
+          'relative hidden md:inline-flex transition-all',
+          focusMode && 'bg-gradient-to-br from-hermes/15 to-shopee/10 text-hermes shadow-[0_0_18px_rgba(139,92,246,0.35)]',
+        )}
         title="Focus Mode (F) — hide sidebar & notifications"
         onClick={() => {
           toggleFocusMode()
@@ -277,7 +362,13 @@ export function Header() {
           })
         }}
       >
-        <Icons.Focus className="size-5" />
+        <motion.span
+          animate={focusMode ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+          transition={{ duration: 1.6, repeat: focusMode ? Infinity : 0, ease: 'easeInOut' }}
+          className="inline-flex"
+        >
+          <Icons.Focus className="size-5" />
+        </motion.span>
       </Button>
 
       {/* What's New / Changelog */}

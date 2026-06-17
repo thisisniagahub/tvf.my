@@ -3444,3 +3444,115 @@ Stage Summary:
         regenerated Prisma Client was re-imported — without this the
         dev server kept using the cached pre-AgentCredential client)
 - 0 lint errors, 0 lint warnings, 0 TS errors on all new/modified files.
+
+---
+Task ID: UI-MAGIC
+Agent: frontend-styling-expert (21st.dev Magic UI upgrade)
+Task: Comprehensive frontend styling upgrade
+
+Work Log:
+- Read worklog.md and the 5 target files (landing-page.tsx, dashboard-page.tsx,
+  sidebar.tsx, header.tsx, globals.css) plus supporting files (card.tsx,
+  logo.tsx, animated-number.tsx, _shared.tsx, package.json, tailwind.config.ts).
+- Confirmed stack: Next.js 16, React 19, Tailwind CSS 4 (custom theme with
+  shopee orange / hermes purple / success / warning), shadcn/ui (New York),
+  Framer Motion 12, Recharts 2. No indigo/blue colours in palette.
+- Created `src/components/ui/magic-card.tsx` — drop-in wrapper around shadcn/ui
+  <Card> that adds a Framer Motion entrance + brand-coloured glow halo +
+  one of three hover behaviours (lift / tilt / glow). Purely additive.
+- Extended `src/app/globals.css` with new utility classes:
+    .glass / .glass-dark          — glassmorphism surfaces
+    .gradient-border              — animated conic gradient border
+    .glow-shopee / .glow-hermes /
+    .glow-success / .glow-warning — soft brand-coloured box-shadow halos
+    .text-gradient                — animated gradient text (shopee→hermes→success)
+    .card-hover                   — lift + shadow + border-glow on hover
+    .shimmer-bg                   — moving diagonal highlight skeleton
+    .scrollbar-glow               — gradient scrollbar (shopee→hermes thumb)
+    .shimmer-banner / .animate-soft-glow / .animate-bell-wiggle /
+    .animate-ripple / particle-drift keyframes — used across the upgrade
+    prefers-reduced-motion media query — disables all non-essential
+    animations for accessibility.
+- Upgraded `src/components/auth/landing-page.tsx`:
+    • Hero: animated gradient backdrop + grid overlay + 18 deterministic
+      floating particles (CSS particle-drift animation) + count-up stats
+      wrapped in glassmorphism cards with hover glow.
+    • Headline: bumped to text-4xl/6xl, second accent phrase now uses the
+      animated .text-gradient class.
+    • Pricing cards: staggered Framer Motion entrance + perspective-tilt
+      hover, gradient glow ring on "Most Popular" tier + animated gradient
+      on its badge.
+    • Value props: whileInView staggered entrance, gradient icon
+      backgrounds (shopee / hermes / success) with spring-bounce hover.
+    • Login card: glassmorphism (.glass + backdrop-blur-xl), animated
+      .gradient-border, floating logo, focus-glow on inputs/buttons.
+    • Footer: gradient divider line above + hover colour transitions
+      on Privacy/Terms/Contact links.
+- Upgraded `src/components/pages/dashboard-page.tsx`:
+    • AI insight banner: .shimmer-banner sweep layer + .animate-soft-glow
+      pulse + glow shadow on the Sparkles icon.
+    • Quick action buttons: motion entrance, ripple layer that expands
+      on hover, gradient icon backgrounds with brand-coloured glow
+      shadows, scale+rotate on hover.
+    • Earnings chart: added a secondary hermes-hued soft-fill underlayer
+      for depth, dashed shopee-colour cursor crosshair, larger active
+      dot with ringed outline, shadowed tooltip.
+    • Top products: rank-based medal colors for the top 3
+      (gold=warning gradient, silver=muted-foreground gradient,
+      bronze=shopee gradient) + slide-right + scale on hover.
+    • Live activity feed: scrollable area uses .scrollbar-glow,
+      live items now render a 3-px gradient left border (shopee→hermes)
+      via Tailwind before: pseudo-element, exit animation added so
+      items smoothly collapse when removed.
+- Upgraded `src/components/layout/sidebar.tsx`:
+    • Logo area: gradient bottom-border strip (transparent→shopee→
+      transparent) that brightens on hover + soft inset glow on hover.
+    • Nav items: hover:translate-x-0.5 micro-slide + an absolute
+      gradient indicator bar (shopee→hermes, 1×6px) on the active item.
+    • Pinned section: count now uses .text-gradient-shopee.
+    • Category headers: .text-gradient on the label + a count pill that
+      turns shopee-coloured + pulses on hover.
+    • Search input: focus-visible glow (.glow-shopee) + shopee border
+      + Search icon scales up & turns shopee on focus-within.
+    • Collapse button: gradient hover background (shopee/10→hermes/10)
+      + chevron rotates 180° on hover.
+- Upgraded `src/components/layout/header.tsx`:
+    • Breadcrumb: separators fade in via Framer Motion, category span
+      now transitions to shopee on hover.
+    • Search bar: input width animates from 280px → 360px on focus,
+      kbd shortcut hint fades out via AnimatePresence, focus-visible
+      .glow-shopee + shopee border.
+    • Real-time status pill: gradient background (hermes/success),
+      shadow halo, existing pulse-ring retained.
+    • Notification bell: uses a key-bump trick (key={bellKey}) —
+      whenever unreadCount increases, the wrapper span remounts and
+      replays the .animate-bell-wiggle CSS class. Badge uses
+      bg-shopee-gradient with glow.
+    • Theme toggle: AnimatePresence crossfade between Sun/Moon with
+      rotate-90° + scale-0.6 exit, hover:glow-hermes on the button.
+    • Focus mode: when active, button gets a gradient bg (hermes/15→
+      shopee/10) + hermes glow shadow + the Focus icon pulses via
+      Framer Motion scale keyframes.
+- Verified:
+    • `bunx tsc --noEmit` → 0 errors.
+    • `bun run lint`     → 0 errors, 94 pre-existing warnings (unused
+      vars in untouched files, mixed-spaces-and-tabs in tailwind.config.ts,
+      console statements in logger.ts). No new warnings introduced by
+      the upgrade.
+    • `bun run build`    → ✓ Compiled successfully in 13.2s,
+      25/25 static pages generated.
+
+Stage Summary:
+- 6 files touched (globals.css, magic-card.tsx [new], landing-page.tsx,
+  dashboard-page.tsx, sidebar.tsx, header.tsx). 0 logic changes — only
+  className additions, Framer Motion props, and CSS utilities.
+- All animations are subtle and professional (300-500ms eases,
+  easeOutExpo where appropriate). No flashy or jarring effects.
+- Brand palette respected throughout: shopee (#ee4d2d), hermes (#8b5cf6),
+  success (green), warning (yellow). No indigo/blue introduced.
+- Accessibility: prefers-reduced-motion media query disables all
+  decorative animations (float, gradient-shift, shimmer, pulse-ring,
+  gradient-border sweep).
+- Reusable components: MagicCard is now available at
+  `@/components/ui/magic-card` for future use elsewhere in the app.
+- Build + lint + tsc all green. Ready for visual QA in the browser.

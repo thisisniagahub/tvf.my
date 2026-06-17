@@ -109,11 +109,13 @@ export function DashboardPage() {
         </Button>
       </PageHeader>
 
-      {/* AI Insight Banner */}
-      <Card className="overflow-hidden border-hermes/30 bg-gradient-to-r from-hermes/[0.06] to-shopee/[0.04]">
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* AI Insight Banner — shimmer sweep + soft pulse glow */}
+      <Card className="animate-soft-glow relative overflow-hidden border-hermes/30 bg-gradient-to-r from-hermes/[0.06] to-shopee/[0.04]">
+        {/* Shimmer sweep layer — purely decorative, sits behind content */}
+        <div className="shimmer-banner pointer-events-none absolute inset-0" aria-hidden="true" />
+        <CardContent className="relative flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-hermes-gradient text-white">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-hermes-gradient text-white shadow-[0_0_18px_rgba(139,92,246,0.4)]">
               <Icons.Sparkles className="size-5" />
             </div>
             <div>
@@ -125,7 +127,7 @@ export function DashboardPage() {
             <Button size="sm" variant="outline" onClick={() => toast.info('Insight dismissed')}>
               Dismiss
             </Button>
-            <Button size="sm" onClick={() => setActivePage('campaigns')} className="bg-hermes-gradient hover:opacity-90">
+            <Button size="sm" onClick={() => setActivePage('campaigns')} className="bg-hermes-gradient hover:opacity-90 hover:shadow-[0_0_24px_rgba(139,92,246,0.45)] transition-shadow">
               {aiInsight.action}
             </Button>
           </div>
@@ -140,24 +142,37 @@ export function DashboardPage() {
         <StatCard index={3} label="Active Links" value={cardStats.activeLinks} delta="+5 new" deltaType="up" icon={Icons.Link} accent="warning" subtitle="6 paused" />
       </div>
 
-      {/* Quick actions */}
+      {/* Quick actions — gradient icon bg + ripple ring on hover */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {quickActions.map((action) => (
-          <button
+        {quickActions.map((action, i) => (
+          <motion.button
             key={action.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.06, duration: 0.3 }}
             onClick={() => setActivePage(action.page)}
-            className="group flex flex-col items-center gap-2 rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-shopee/40 hover:shadow-md"
+            className="group relative flex flex-col items-center gap-2 overflow-hidden rounded-xl border border-border/60 bg-card p-4 transition-all hover:border-shopee/40 hover:shadow-md"
           >
-            <div className={`flex size-10 items-center justify-center rounded-lg transition-transform group-hover:scale-110 ${
-              action.color === 'shopee' ? 'bg-shopee/10 text-shopee' :
-              action.color === 'hermes' ? 'bg-hermes/10 text-hermes' :
-              action.color === 'success' ? 'bg-success/10 text-success' :
-              'bg-warning/10 text-warning'
+            {/* Ripple layer — expands on hover for a tactile press feel */}
+            <span
+              className={`pointer-events-none absolute left-1/2 top-1/2 size-12 -translate-x-1/2 -translate-y-1/2 scale-0 rounded-full opacity-0 transition-transform duration-500 group-hover:scale-[3] group-hover:opacity-100 ${
+                action.color === 'shopee' ? 'bg-shopee/10' :
+                action.color === 'hermes' ? 'bg-hermes/10' :
+                action.color === 'success' ? 'bg-success/10' :
+                'bg-warning/10'
+              }`}
+              aria-hidden="true"
+            />
+            <div className={`relative flex size-10 items-center justify-center rounded-lg text-white transition-transform group-hover:scale-110 group-hover:rotate-3 ${
+              action.color === 'shopee' ? 'bg-shopee-gradient shadow-[0_0_18px_rgba(238,77,45,0.4)]' :
+              action.color === 'hermes' ? 'bg-hermes-gradient shadow-[0_0_18px_rgba(139,92,246,0.4)]' :
+              action.color === 'success' ? 'bg-gradient-to-br from-success to-success/60 shadow-[0_0_18px_rgba(34,197,94,0.4)]' :
+              'bg-gradient-to-br from-warning to-warning/60 shadow-[0_0_18px_rgba(250,204,21,0.4)]'
             }`}>
               <action.icon className="size-5" />
             </div>
-            <span className="text-sm font-medium">{action.label}</span>
-          </button>
+            <span className="relative text-sm font-medium">{action.label}</span>
+          </motion.button>
         ))}
       </div>
 
@@ -182,8 +197,13 @@ export function DashboardPage() {
                     <stop offset="0%" stopColor="var(--shopee)" stopOpacity={0.4} />
                     <stop offset="100%" stopColor="var(--shopee)" stopOpacity={0} />
                   </linearGradient>
+                  {/* Secondary soft fill — adds depth without overpowering */}
+                  <linearGradient id="earningsGradSoft" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--hermes)" stopOpacity={0.15} />
+                    <stop offset="100%" stopColor="var(--hermes)" stopOpacity={0} />
+                  </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} opacity={0.5} />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" tickLine={false} axisLine={false} interval={4} />
                 <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" tickLine={false} axisLine={false} tickFormatter={(v) => `RM${v}`} />
                 <Tooltip
@@ -192,10 +212,14 @@ export function DashboardPage() {
                     border: '1px solid var(--border)',
                     borderRadius: '8px',
                     fontSize: '12px',
+                    boxShadow: '0 8px 24px -8px rgba(238,77,45,0.25)',
                   }}
+                  cursor={{ stroke: 'var(--shopee)', strokeWidth: 1, strokeDasharray: '4 4' }}
                   formatter={(v: number) => [formatRM(v), 'Earnings']}
                 />
-                <Area type="monotone" dataKey="earnings" stroke="var(--shopee)" strokeWidth={2} fill="url(#earningsGrad)" />
+                {/* Soft hermes-hued underlayer for depth */}
+                <Area type="monotone" dataKey="earnings" stroke="none" fill="url(#earningsGradSoft)" />
+                <Area type="monotone" dataKey="earnings" stroke="var(--shopee)" strokeWidth={2} fill="url(#earningsGrad)" activeDot={{ r: 5, fill: 'var(--shopee)', stroke: 'var(--background)', strokeWidth: 2 }} />
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
@@ -252,7 +276,10 @@ export function DashboardPage() {
           <CardContent className="p-0">
             <div className="divide-y">
               {topProducts.slice(0, 5).map((p, i: number) => (
-                <div key={p.id} className="flex items-center gap-3 p-3 hover:bg-accent/40">
+                <div
+                  key={p.id}
+                  className="group flex items-center gap-3 p-3 transition-all hover:bg-accent/40 hover:translate-x-1"
+                >
                   {/* Rank badge placeholder — when real product images are wired
                       up, this could become a small product thumbnail:
                       <SmartImage
@@ -263,8 +290,14 @@ export function DashboardPage() {
                         className="size-8 shrink-0 rounded-lg object-cover"
                       />
                       See `images.remotePatterns` in next.config.ts for the
-                      allowed Shopee CDN hosts. */}
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground">
+                      allowed Shopee CDN hosts.
+                      Medal colors: gold/silver/bronze for the top 3 ranks. */}
+                  <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold transition-transform group-hover:scale-110 ${
+                    i === 0 ? 'bg-gradient-to-br from-warning to-warning/60 text-white shadow-[0_0_12px_rgba(250,204,21,0.5)]' :
+                    i === 1 ? 'bg-gradient-to-br from-muted-foreground/50 to-muted-foreground/30 text-white' :
+                    i === 2 ? 'bg-gradient-to-br from-shopee/70 to-shopee/40 text-white shadow-[0_0_10px_rgba(238,77,45,0.35)]' :
+                    'bg-muted text-muted-foreground'
+                  }`}>
                     #{i + 1}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -310,7 +343,7 @@ export function DashboardPage() {
             </Button>
           </div>
           <CardContent className="p-0">
-            <ScrollArea className="h-[280px]">
+            <ScrollArea className="h-[280px] scrollbar-glow">
               <div className="divide-y">
                 <AnimatePresence initial={false}>
                   {activities.map((a) => (
@@ -319,8 +352,13 @@ export function DashboardPage() {
                       layout
                       initial={a.live ? { opacity: 0, height: 0, backgroundColor: 'rgba(238, 77, 45, 0.08)' } : false}
                       animate={{ opacity: 1, height: 'auto', backgroundColor: 'rgba(0,0,0,0)' }}
-                      transition={{ duration: 0.5 }}
-                      className="flex items-start gap-3 p-3"
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                      className={cn(
+                        'relative flex items-start gap-3 overflow-hidden p-3',
+                        // Gradient left border on live items — uses ::before via a wrapper span
+                        a.live && 'before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-gradient-to-b before:from-shopee before:to-hermes',
+                      )}
                     >
                       <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${
                         a.type === 'sale' ? 'bg-success/15 text-success' :

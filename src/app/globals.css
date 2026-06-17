@@ -237,3 +237,197 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Magic UI utility classes — 21st.dev-inspired visual polish.
+   Each class is designed to be additive (composition-friendly) so it
+   can be combined with existing shadcn/ui components without conflict.
+   ────────────────────────────────────────────────────────────────────── */
+
+/* Glassmorphism — frosted translucent surface used on cards / banners.
+   Sits on top of gradient backgrounds for the "floating panel" effect. */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.glass-dark {
+  background: rgba(15, 15, 20, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Animated gradient border — uses a conic-gradient mask trick so the
+   border colour cycles smoothly. Pair with `border-0` to avoid double
+   borders. */
+.gradient-border {
+  position: relative;
+  background-clip: padding-box;
+  border: 1px solid transparent;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(120deg, var(--shopee), var(--hermes), var(--success), var(--shopee));
+  background-size: 300% 300%;
+  animation: gradient-shift 6s ease infinite;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Glow shadows — soft brand-colored halos for emphasis. */
+.glow-shopee {
+  box-shadow: 0 0 20px rgba(238, 77, 45, 0.18), 0 0 0 1px rgba(238, 77, 45, 0.05);
+}
+.glow-hermes {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.18), 0 0 0 1px rgba(139, 92, 246, 0.05);
+}
+.glow-success {
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.18), 0 0 0 1px rgba(34, 197, 94, 0.05);
+}
+.glow-warning {
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.18), 0 0 0 1px rgba(250, 204, 21, 0.05);
+}
+
+/* Animated gradient text — cycles shopee → hermes → success. */
+.text-gradient {
+  background: linear-gradient(120deg, var(--shopee), var(--hermes), var(--success), var(--shopee));
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-shift 8s ease infinite;
+}
+
+/* Card hover — lift + shadow + brand border glow. Subtle, professional. */
+.card-hover {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.3s ease,
+              border-color 0.3s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px -12px rgba(238, 77, 45, 0.18);
+  border-color: rgba(238, 77, 45, 0.3);
+}
+
+/* Shimmer skeleton background — moving diagonal highlight. */
+.shimmer-bg {
+  background: linear-gradient(
+    110deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.5s linear infinite;
+}
+@keyframes shimmer-move {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Custom scrollbar with gradient thumb. */
+.scrollbar-glow::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar-glow::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-glow::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--shopee), var(--hermes));
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.scrollbar-glow::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--shopee-dark), var(--hermes-dark));
+  background-clip: padding-box;
+}
+
+/* Floating particle layer — used behind the hero. Pure CSS dots. */
+@keyframes particle-drift {
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
+  10%  { opacity: 0.6; }
+  90%  { opacity: 0.6; }
+  100% { transform: translateY(-120px) translateX(20px); opacity: 0; }
+}
+
+/* Ripple keyframe used by quick-action hover. */
+@keyframes ripple-pulse {
+  0%   { transform: scale(0.8); opacity: 0.5; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+.animate-ripple {
+  animation: ripple-pulse 0.7s ease-out forwards;
+}
+
+/* Subtle banner shimmer used on the dashboard AI insight banner. */
+@keyframes banner-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer-banner {
+  background-image: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: banner-shimmer 4s linear infinite;
+}
+
+/* Subtle pulse glow used on banner backdrop. */
+@keyframes soft-glow {
+  0%, 100% { box-shadow: 0 0 24px -6px rgba(139, 92, 246, 0.25); }
+  50%      { box-shadow: 0 0 36px -4px rgba(238, 77, 45, 0.28); }
+}
+.animate-soft-glow {
+  animation: soft-glow 4s ease-in-out infinite;
+}
+
+/* Notification bounce — used by the bell when a new event arrives. */
+@keyframes bell-wiggle {
+  0%, 100% { transform: rotate(0); }
+  15%      { transform: rotate(14deg); }
+  30%      { transform: rotate(-12deg); }
+  45%      { transform: rotate(8deg); }
+  60%      { transform: rotate(-6deg); }
+  75%      { transform: rotate(3deg); }
+}
+.animate-bell-wiggle {
+  animation: bell-wiggle 1s ease-in-out;
+}
+
+/* Reduced motion — disables non-essential animation for accessibility. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-float,
+  .animate-gradient,
+  .animate-soft-glow,
+  .shimmer,
+  .shimmer-bg,
+  .shimmer-banner,
+  .pulse-ring::before,
+  .gradient-border::before {
+    animation: none !important;
+  }
+}

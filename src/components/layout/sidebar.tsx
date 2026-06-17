@@ -68,7 +68,7 @@ export function Sidebar() {
             <button
               onClick={() => setActivePage(item.id)}
               className={cn(
-                'relative flex h-10 w-full items-center justify-center rounded-lg transition-all',
+                'relative flex h-10 w-full items-center justify-center rounded-lg transition-all hover:translate-x-0.5',
                 isActive
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
@@ -90,12 +90,19 @@ export function Sidebar() {
         <button
           onClick={() => setActivePage(item.id)}
           className={cn(
-            'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all',
+            'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all hover:translate-x-0.5',
             isActive
               ? 'bg-primary text-primary-foreground shadow-sm'
               : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
           )}
         >
+          {/* Active indicator bar — gradient strip on the left edge */}
+          {isActive && (
+            <span
+              className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-shopee to-hermes"
+              aria-hidden="true"
+            />
+          )}
           <Icon className="size-4 shrink-0" />
           <span className="flex-1 text-left truncate">{item.label}</span>
           {item.badge && (
@@ -140,41 +147,45 @@ export function Sidebar() {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex h-full flex-col">
-        {/* Logo */}
-        <div className="flex h-16 items-center gap-2 border-b px-4">
+        {/* Logo — gradient bottom border + subtle glow on hover */}
+        <div className="group relative flex h-16 items-center gap-2 border-b px-4">
+          {/* Gradient bottom border — decorative strip under the logo */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-shopee to-transparent opacity-60 transition-opacity group-hover:opacity-100" aria-hidden="true" />
+          {/* Soft glow on hover */}
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100 group-hover:shadow-[inset_0_0_24px_rgba(238,77,45,0.12)]" aria-hidden="true" />
           {sidebarCollapsed ? (
-            <Logo size="sm" showText={false} />
+            <Logo size="sm" showText={false} className="relative" />
           ) : (
-            <div className="flex min-w-0 flex-col gap-0.5">
+            <div className="relative flex min-w-0 flex-col gap-0.5">
               <Logo size="sm" />
               <p className="truncate pl-1 text-[10px] text-muted-foreground">Affiliate Manager Pro</p>
             </div>
           )}
         </div>
 
-        {/* Search */}
+        {/* Search — focus glow + animated icon */}
         {!sidebarCollapsed && (
           <div className="p-3">
-            <div className="relative">
-              <Icons.Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="group relative">
+              <Icons.Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-all group-focus-within:left-2.5 group-focus-within:text-shopee group-focus-within:scale-110" />
               <Input
                 placeholder="Search sidebar pages"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-9 pl-8 text-sm"
+                className="h-9 pl-8 text-sm transition-shadow focus-visible:glow-shopee focus-visible:border-shopee/40"
               />
             </div>
           </div>
         )}
 
         {/* Nav items */}
-        <ScrollArea className="flex-1 px-2">
+        <ScrollArea className="scrollbar-glow flex-1 px-2">
           <div className="space-y-1 pb-4">
             {/* Pinned */}
             {pinned.length > 0 && !sidebarCollapsed && (
               <div className="mb-2">
                 <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Pinned ({pinned.length})
+                  Pinned <span className="text-gradient-shopee">({pinned.length})</span>
                 </p>
                 {pinned.map(renderItem)}
               </div>
@@ -198,12 +209,19 @@ export function Sidebar() {
                 <div key={cat} className="mb-2">
                   <button
                     onClick={() => toggleCat(cat)}
-                    className="flex w-full items-center justify-between px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                    className="flex w-full items-center justify-between px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
                   >
-                    <span>{categoryLabels[cat]} ({items.length})</span>
-                    <Icons.ChevronDown
-                      className={cn('size-3 transition-transform', isCollapsed && '-rotate-90')}
-                    />
+                    {/* Gradient category header */}
+                    <span className="text-gradient">{categoryLabels[cat]}</span>
+                    <span className="flex items-center gap-1">
+                      {/* Count badge with subtle pulse on hover */}
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground transition-all hover:bg-shopee/15 hover:text-shopee hover:animate-pulse">
+                        {items.length}
+                      </span>
+                      <Icons.ChevronDown
+                        className={cn('size-3 transition-transform duration-200', isCollapsed && '-rotate-90')}
+                      />
+                    </span>
                   </button>
                   {!isCollapsed && <div className="space-y-0.5">{items.map(renderItem)}</div>}
                 </div>
@@ -212,19 +230,19 @@ export function Sidebar() {
           </div>
         </ScrollArea>
 
-        {/* Collapse toggle */}
+        {/* Collapse toggle — rotates on hover, gradient bg when expanded */}
         <div className="border-t p-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={toggleSidebar}
-            className="w-full justify-start gap-2 text-muted-foreground"
+            className="group w-full justify-start gap-2 text-muted-foreground transition-all hover:bg-gradient-to-r hover:from-shopee/10 hover:to-hermes/10 hover:text-foreground"
           >
             {sidebarCollapsed ? (
-              <Icons.ChevronRight className="size-4" />
+              <Icons.ChevronRight className="size-4 transition-transform duration-300 group-hover:rotate-180" />
             ) : (
               <>
-                <Icons.ChevronLeft className="size-4" />
+                <Icons.ChevronLeft className="size-4 transition-transform duration-300 group-hover:-rotate-180" />
                 <span>Collapse sidebar</span>
               </>
             )}
