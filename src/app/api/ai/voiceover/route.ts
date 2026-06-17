@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger, handleApiError } from '@/lib/logger'
 import { validateInput, aiVoiceoverSchema } from '@/lib/validation'
+import { requireUser } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   const limited = applyRateLimit(request, RATE_LIMITS.ai, 'ai-voiceover')
@@ -14,6 +15,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: validation.status })
     }
     const { text, voice = 'tongtong', speed = 1.0 } = validation.data
+
+    // Resolve the user server-side so the audit log attributes the
+    // TTS call to the right account. Demo-mode fallback is allowed —
+    // the underlying call is rate-limited per-IP.
+    const user = await requireUser()
 
     // TTS API limit: 1024 chars
     const truncatedText = text.slice(0, 1000)
@@ -44,7 +50,7 @@ export async function POST(request: NextRequest) {
     } catch (aiError) {
       logger.error(
         'TTS AI error',
-        { voice, textLength: truncatedText.length },
+        { userId: user.id, voice, textLength: truncatedText.length },
         aiError
       )
       return NextResponse.json({

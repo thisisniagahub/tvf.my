@@ -5,13 +5,20 @@ import {
   demoProducts,
 } from '@/lib/demo-data'
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
-import { handleApiError } from '@/lib/logger'
+import { handleApiError, logger } from '@/lib/logger'
+import { requireUser } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   const limited = applyRateLimit(request, RATE_LIMITS.api, 'dashboard')
   if (limited) return limited
 
   try {
+    // Resolve the user server-side so the audit log can attribute
+    // dashboard views. Demo-mode fallback allowed — the underlying
+    // data is shared demo data anyway.
+    const user = await requireUser()
+    logger.info('Dashboard data requested', { userId: user.id })
+
     return NextResponse.json({
       earnings: demoEarnings,
       activities: demoActivities,

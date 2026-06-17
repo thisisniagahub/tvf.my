@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+// SEC-B3: bumped comment to force dev-server restart so the regenerated
+// Prisma Client (now includes the AgentCredential model) is re-imported.
 const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,

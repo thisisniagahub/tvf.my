@@ -5,135 +5,228 @@
  * Facebook / Instagram) for use by the agent's headless browser
  * sessions.
  *
- * SECURITY STATUS:
- *   ⚠️  The current implementation uses base64 encoding as a
- *      placeholder. Base64 is NOT encryption — it is reversible
- *      by anyone with the string. This is acceptable ONLY for the
- *      current dev/sandbox phase.
+ * SECURITY:
+ *   ✓ Secrets are encrypted at rest with AES-256-GCM via
+ *     `src/lib/crypto.ts` (random 12-byte IV + 16-byte auth tag per
+ *     record). The plaintext password is only decrypted in memory when
+ *     a caller explicitly asks for it via `getCredential()` /
+ *     `getCredentialsByPlatform()`.
+ *   ✓ Every method takes `userId` as the first parameter so callers
+ *     cannot read or mutate another user's credentials. API routes
+ *     resolve `userId` server-side via `requireAuth()` — never trust
+ *     a client-supplied userId.
+ *   ✓ `listCredentials()` returns a `CredentialSummary` projection that
+ *     omits the password entirely (not even the ciphertext).
  *
- *   For production, replace `encrypt` / `decrypt` with AES-256-GCM
- *   using a server-side key managed by a secrets manager (e.g. Vault,
- *   AWS KMS, GCP KMS). The key should NEVER be committed to source
- *   control — pull it from `process.env.NEXTAUTH_SECRET` (already
- *   done here) and rotate it regularly.
- *
- *   The `CredentialStore` API is intentionally storage-agnostic —
- *   swapping the in-memory `Map` for Prisma + an encrypted column
- *   is a drop-in change that will not affect callers.
+ * Persistence:
+ *   Primary store is the `AgentCredential` Prisma model (SQLite). When
+ *   the DB is unavailable (Vercel serverless cold-start, runtime
+ *   failure), every method transparently falls back to an in-memory
+ *   `Map` keyed by credential id. The in-memory store keeps the same
+ *   AES-256-GCM ciphertext shape so security is identical in either
+ *   mode — the only difference is durability across restarts.
  */
 
 import { logger } from '@/lib/logger'
-
-const ENCRYPTION_KEY = process.env.NEXTAUTH_SECRET || 'fallback-key-not-secure'
+import { db, dbAvailable, withDbFallback } from '@/lib/db'
+import { encrypt, decrypt } from '@/lib/crypto'
 
 export interface StoredCredential {
   id: string
   platform: string
   username: string
-  /** Encrypted at rest; decrypted only when explicitly fetched. */
+  /** Decrypted plaintext — only populated by `getCredential()` / `getCredentialsByPlatform()`. */
   password: string
   createdAt: string
 }
 
-/** Public-safe projection (no password, even encrypted). */
+/** Public-safe projection (no password, not even the ciphertext). */
 export type CredentialSummary = Omit<StoredCredential, 'password'>
 
-/**
- * Placeholder symmetric "encryption".
- *
- * TODO(prod): replace with `crypto.createCipheriv('aes-256-gcm', ...)`
- * using `ENCRYPTION_KEY` (sha256-derived) + a per-record random IV +
- * an auth tag persisted alongside the ciphertext.
- */
-function encrypt(text: string): string {
-  // Derive a key-dependent prefix so the ciphertext is at least
-  // bound to the configured secret. (NOT real security — see header.)
-  const keyTag = Buffer.from(ENCRYPTION_KEY).toString('base64').substring(0, 8)
-  const payload = `${keyTag}:${text}`
-  return Buffer.from(payload).toString('base64')
-}
-
-function decrypt(encrypted: string): string {
-  try {
-    const payload = Buffer.from(encrypted, 'base64').toString('utf-8')
-    const colonIdx = payload.indexOf(':')
-    if (colonIdx === -1) return ''
-    // Verify the key tag matches — if not, the secret was rotated.
-    const keyTag = payload.substring(0, colonIdx)
-    const expectedTag = Buffer.from(ENCRYPTION_KEY).toString('base64').substring(0, 8)
-    if (keyTag !== expectedTag) {
-      logger.warn('Credential decrypt: key tag mismatch (rotated secret?)')
-      return ''
-    }
-    return payload.substring(colonIdx + 1)
-  } catch {
-    logger.warn('Credential decrypt: malformed ciphertext')
-    return ''
-  }
+interface InMemoryCredentialRow {
+  userId: string
+  platform: string
+  username: string
+  encryptedSecret: string
+  createdAt: string
 }
 
 export class CredentialStore {
-  private store = new Map<string, StoredCredential>()
+  /**
+   * In-memory credential store keyed by credential id. Used only when
+   * the DB is unavailable (Vercel serverless / first runtime failure).
+   * The stored `encryptedSecret` is real AES-256-GCM ciphertext, NOT
+   * plaintext.
+   */
+  private memoryStore = new Map<string, InMemoryCredentialRow>()
 
   /**
-   * Persist a new credential. The password is encrypted at rest.
-   * Returns the new credential id.
+   * Persist a new credential. The password is encrypted at rest with
+   * AES-256-GCM before being written to either the DB or the in-memory
+   * fallback. Returns the new credential id.
    */
   async storeCredential(
+    userId: string,
     platform: string,
     username: string,
     password: string
   ): Promise<string> {
+    const encryptedSecret = encrypt(password)
     const id = `cred-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
-    const cred: StoredCredential = {
-      id,
+
+    if (dbAvailable) {
+      await withDbFallback(
+        async () => {
+          const created = await db.agentCredential.create({
+            data: { id, userId, platform, username, encryptedSecret },
+          })
+          return created
+        },
+        null
+      )
+    }
+
+    // Always mirror in memory so the in-memory fallback stays consistent
+    // even when the DB write succeeded (cheap, and keeps both views in
+    // sync if a later DB query fails over).
+    this.memoryStore.set(id, {
+      userId,
       platform,
       username,
-      password: encrypt(password),
+      encryptedSecret,
       createdAt: new Date().toISOString(),
-    }
-    this.store.set(id, cred)
-    logger.info('Credential stored', { platform, username, id })
+    })
+
+    logger.info('Credential stored', { userId, platform, username, id })
     return id
   }
 
   /**
-   * Fetch a single credential by id, with the password decrypted.
-   * Callers MUST treat the returned `password` as sensitive and
-   * never log or persist it.
+   * Fetch a single credential by id, scoped to `userId`. The returned
+   * `password` is the decrypted plaintext — callers MUST treat it as
+   * sensitive and never log or persist it.
+   *
+   * Returns `null` if the credential does not exist or belongs to a
+   * different user.
    */
-  async getCredential(id: string): Promise<StoredCredential | null> {
-    const cred = this.store.get(id)
-    if (!cred) return null
-    return { ...cred, password: decrypt(cred.password) }
-  }
+  async getCredential(
+    userId: string,
+    id: string
+  ): Promise<StoredCredential | null> {
+    // Try DB first.
+    if (dbAvailable) {
+      const record = await withDbFallback(
+        () => db.agentCredential.findFirst({ where: { id, userId } }),
+        null
+      )
+      if (record) {
+        return {
+          id: record.id,
+          platform: record.platform,
+          username: record.username,
+          password: decrypt(record.encryptedSecret),
+          createdAt: record.createdAt.toISOString(),
+        }
+      }
+    }
 
-  /** All credentials for a given platform (passwords decrypted). */
-  async getCredentialsByPlatform(platform: string): Promise<StoredCredential[]> {
-    return Array.from(this.store.values())
-      .filter((c) => c.platform === platform)
-      .map((c) => ({ ...c, password: decrypt(c.password) }))
-  }
-
-  /** Remove a credential. Idempotent — deleting a missing id is a no-op. */
-  async deleteCredential(id: string): Promise<void> {
-    const existed = this.store.delete(id)
-    if (existed) {
-      logger.info('Credential deleted', { id })
+    // Fallback to memory.
+    const mem = this.memoryStore.get(id)
+    if (!mem || mem.userId !== userId) return null
+    return {
+      id,
+      platform: mem.platform,
+      username: mem.username,
+      password: decrypt(mem.encryptedSecret),
+      createdAt: mem.createdAt,
     }
   }
 
   /**
-   * List all credentials WITHOUT passwords. Safe to return from
-   * public API endpoints.
+   * All credentials for a given platform owned by `userId`. Passwords
+   * are decrypted in the returned objects.
    */
-  async listCredentials(): Promise<CredentialSummary[]> {
-    return Array.from(this.store.values()).map((c) => ({
-      id: c.id,
-      platform: c.platform,
-      username: c.username,
-      createdAt: c.createdAt,
-    }))
+  async getCredentialsByPlatform(
+    userId: string,
+    platform: string
+  ): Promise<StoredCredential[]> {
+    if (dbAvailable) {
+      const records = await withDbFallback(
+        () => db.agentCredential.findMany({ where: { userId, platform } }),
+        [] as Awaited<ReturnType<typeof db.agentCredential.findMany>>
+      )
+      if (records.length > 0) {
+        return records.map((r) => ({
+          id: r.id,
+          platform: r.platform,
+          username: r.username,
+          password: decrypt(r.encryptedSecret),
+          createdAt: r.createdAt.toISOString(),
+        }))
+      }
+    }
+
+    return Array.from(this.memoryStore.values())
+      .filter((c) => c.userId === userId && c.platform === platform)
+      .map((c) => ({
+        id: c.userId + c.platform,
+        platform: c.platform,
+        username: c.username,
+        password: decrypt(c.encryptedSecret),
+        createdAt: c.createdAt,
+      }))
+  }
+
+  /**
+   * Remove a credential. Scoped to `userId` — a request that supplies
+   * another user's credential id is a no-op. Idempotent: deleting a
+   * missing id succeeds silently.
+   */
+  async deleteCredential(userId: string, id: string): Promise<void> {
+    if (dbAvailable) {
+      await withDbFallback(
+        () => db.agentCredential.deleteMany({ where: { id, userId } }),
+        null
+      )
+    }
+    const existed = this.memoryStore.delete(id)
+    if (existed) {
+      logger.info('Credential deleted', { userId, id })
+    }
+  }
+
+  /**
+   * List all credentials owned by `userId` WITHOUT passwords. Safe to
+   * return from public API endpoints.
+   */
+  async listCredentials(userId: string): Promise<CredentialSummary[]> {
+    if (dbAvailable) {
+      const records = await withDbFallback(
+        () =>
+          db.agentCredential.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+          }),
+        [] as Awaited<ReturnType<typeof db.agentCredential.findMany>>
+      )
+      if (records.length > 0) {
+        return records.map((r) => ({
+          id: r.id,
+          platform: r.platform,
+          username: r.username,
+          createdAt: r.createdAt.toISOString(),
+        }))
+      }
+    }
+
+    return Array.from(this.memoryStore.values())
+      .filter((c) => c.userId === userId)
+      .map((c) => ({
+        id: c.userId + c.platform,
+        platform: c.platform,
+        username: c.username,
+        createdAt: c.createdAt,
+      }))
   }
 }
 

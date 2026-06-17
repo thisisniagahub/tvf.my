@@ -1,23 +1,52 @@
-:81 {
-	@transform_port_query {
-		query XTransformPort=*
+# TheViralFindsMY — Production Caddyfile (reference configuration)
+#
+# NOTE: This file is a REFERENCE configuration for production deployments.
+# The sandbox/dev environment uses a different Caddyfile (managed by the
+# platform) which still needs the XTransformPort handler to route
+# Socket.io traffic to mini-services. In production, deploy this config
+# to your Caddy instance and remove the XTransformPort handler entirely
+# (it is an SSRF risk: it lets any client proxy to any internal port).
+#
+# Security features:
+#   1. Strips client-provided X-Forwarded-* / X-Real-IP headers
+#      (defense-in-depth: prevents IP spoofing even if a downstream
+#      service trusts these headers).
+#   2. Sets strict security headers (HSTS, X-Frame-Options, etc.).
+#   3. Proxies to the Next.js app on localhost:3000, appending our own
+#      trusted X-Forwarded-For / X-Real-IP based on the actual
+#      remote_host Caddy observed.
+#   4. No XTransformPort handler — internal mini-services (Socket.io)
+#      must be reached via explicit reverse_proxy blocks with allowlists
+#      rather than a free-form port parameter.
+
+tvf.my, www.tvf.my {
+	# Strip client-provided X-Forwarded-* headers (defense-in-depth).
+	# Without this, a client could send X-Forwarded-For: 1.2.3.4 and
+	# the app might trust it for rate-limiting / IP-based features.
+	request_header {
+		X-Forwarded-For ""
+		X-Forwarded-Proto ""
+		X-Real-IP ""
 	}
 
-	handle @transform_port_query {
-		reverse_proxy localhost:{query.XTransformPort} {
-			header_up Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Real-IP {remote_host}
-		}
+	# Security headers (defense-in-depth; the Next.js app also sets
+	# these via next.config.ts headers()).
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 	}
 
-	handle {
-		reverse_proxy localhost:3000 {
-			header_up Host {host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Real-IP {remote_host}
-		}
+	# Proxy to Next.js. We append our own trusted forwarding headers
+	# AFTER stripping any client-supplied ones above, so the app sees
+	# only the values we set here.
+	reverse_proxy localhost:3000 {
+		header_up Host {host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Real-IP {remote_host}
 	}
 }

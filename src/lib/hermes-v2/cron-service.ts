@@ -61,6 +61,11 @@ export interface CronExecutionResult {
  * Parse a natural-language schedule string into a 5-field cron
  * expression. Returns `null` if the input cannot be parsed.
  *
+ * This is a thin backwards-compatible alias for `scheduleToCron` —
+ * the canonical name going forward. Existing callers (e.g.
+ * `scheduleJob`) keep using `parseSchedule`; new code should prefer
+ * `scheduleToCron` for clarity.
+ *
  * Supported formats:
  *  - "every 30m" / "every 2h" / "every 6h"
  *  - "daily 9am" / "daily 9:00" / "daily 09:30"
@@ -68,19 +73,48 @@ export interface CronExecutionResult {
  *  - "0 9 * * *"  (raw cron expression — pass-through)
  */
 export function parseSchedule(nl: string): string | null {
-  if (!nl || typeof nl !== 'string') return null
-  const input = nl.trim().toLowerCase()
+  return scheduleToCron(nl)
+}
 
-  // --- Pass-through: already a cron expression ----------------------
-  // 5 whitespace-separated fields, each composed of cron-legal chars.
+/**
+ * Convert a natural-language schedule string into a 5-field cron
+ * expression. Returns `null` if the input cannot be parsed.
+ *
+ * Examples (NL input → cron output):
+ *   "every 2h"          → minute=0, hour=star/2, day/star/star/star
+ *   "every 30m"         → minute=star/30, hour=star, day/star/star/star
+ *   "every 6h"          → minute=0, hour=star/6,  day/star/star/star
+ *   "daily 9am"         → "0 9 * * *"
+ *   "daily 9:00"        → "0 9 * * *"
+ *   "weekly monday 9am" → "0 9 * * 1"
+ *   "0 9 * * *"         → pass-through (already a 5-field cron expr)
+ *
+ * (The "star/N" notation above stands in for the cron step syntax to
+ * avoid embedding the literal two-character sequence that closes JSDoc
+ * comments prematurely.)
+ *
+ * Returns null if the input doesn't match any supported pattern.
+ */
+export function scheduleToCron(input: string): string | null {
+  if (!input || typeof input !== 'string') return null
+  const value = input.trim().toLowerCase()
+  if (!value) return null
+
+  // --- Pass-through: already a 5-field cron expression --------------
+  // Each field must be composed entirely of cron-legal characters
+  // (digits, `*`, `/`, `,`, `-`). This deliberately accepts values
+  // outside field ranges — `computeNextRun` will fail them later —
+  // because we want parse errors to surface at compute time with a
+  // clear "invalid cron field" message rather than silently returning
+  // null here.
   const cronField = /^[\d*/,-]+$/
-  const parts = input.split(/\s+/)
+  const parts = value.split(/\s+/)
   if (parts.length === 5 && parts.every((p) => cronField.test(p))) {
-    return input
+    return value
   }
 
   // --- "every Nm" / "every Nh" / "every Nd" -------------------------
-  const everyMatch = input.match(/^every\s+(\d+)\s*([mhd])$/)
+  const everyMatch = value.match(/^every\s+(\d+)\s*([mhd])$/)
   if (everyMatch) {
     const n = parseInt(everyMatch[1], 10)
     const unit = everyMatch[2]
@@ -100,12 +134,12 @@ export function parseSchedule(nl: string): string | null {
   }
 
   // --- "every minute" / "every hour" / "every day" ------------------
-  if (input === 'every minute') return '* * * * *'
-  if (input === 'every hour') return '0 * * * *'
-  if (input === 'every day') return '0 0 * * *'
+  if (value === 'every minute') return '* * * * *'
+  if (value === 'every hour') return '0 * * * *'
+  if (value === 'every day') return '0 0 * * *'
 
   // --- "daily HH:MM" / "daily Ham" / "daily Hpm" --------------------
-  const dailyMatch = input.match(
+  const dailyMatch = value.match(
     /^daily\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/
   )
   if (dailyMatch) {
@@ -135,7 +169,7 @@ export function parseSchedule(nl: string): string | null {
     saturday: 6,
     sat: 6,
   }
-  const weeklyMatch = input.match(
+  const weeklyMatch = value.match(
     /^weekly\s+([a-z]+)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/
   )
   if (weeklyMatch) {
@@ -155,74 +189,178 @@ export function parseSchedule(nl: string): string | null {
 }
 
 /**
- * Compute the next run timestamp from a cron expression using a
- * simple iterative search. We probe minute-by-minute starting from
- * "now + 1 minute" up to 7 days ahead; if no match is found we
- * return `null`. This is intentionally simple — for full cron
- * semantics (L, W, #) the production deployment should rely on
- * Vercel Cron's scheduler.
+ * Parse a single cron field into the Set of valid integer values it
+ * represents. Supports every standard cron syntax:
+ *  - wildcard:        star            (every value in [min, max])
+ *  - step:            star-slash-N    (every Nth value, e.g. star/5)
+ *  - range:           "1-5"           (inclusive range)
+ *  - list:            "1,3,5"         (comma-separated values)
+ *  - combined:        "1-5,10/2"      (list of range-or-value with step)
+ *  - value with step: "5/2"           (every 2 starting at 5, to max)
+ *
+ * (The "star-slash-N" / "star/5" notation above stands in for the
+ * cron step syntax to avoid embedding the literal two-character
+ * sequence that closes JSDoc comments prematurely.)
+ *
+ * Returns null if the field cannot be parsed or contains values
+ * outside the legal [min, max] range for its slot.
  */
-export function computeNextRun(cronExpr: string, from: Date = new Date()): Date | null {
+function parseCronField(
+  field: string,
+  min: number,
+  max: number
+): Set<number> | null {
+  if (!field) return null
+  const values = new Set<number>()
+
+  // Each comma-separated part may itself be a range, step, or value.
+  const parts = field.split(',')
+  for (const part of parts) {
+    if (!part) return null
+
+    // Detect optional "/<step>" suffix (e.g. `*/5`, `1-10/2`, `5/2`).
+    let rangeExpr = part
+    let step = 1
+    const stepMatch = part.match(/^(.+?)\/(\d+)$/)
+    if (stepMatch) {
+      rangeExpr = stepMatch[1]
+      step = parseInt(stepMatch[2], 10)
+      if (Number.isNaN(step) || step < 1) return null
+    }
+
+    let lo: number
+    let hi: number
+    if (rangeExpr === '*') {
+      lo = min
+      hi = max
+    } else {
+      const rangeMatch = rangeExpr.match(/^(\d+)-(\d+)$/)
+      if (rangeMatch) {
+        lo = parseInt(rangeMatch[1], 10)
+        hi = parseInt(rangeMatch[2], 10)
+        if (lo < min || hi > max || lo > hi) return null
+      } else {
+        const singleMatch = rangeExpr.match(/^(\d+)$/)
+        if (!singleMatch) return null
+        const n = parseInt(rangeExpr, 10)
+        if (n < min || n > max) return null
+        lo = n
+        // A single value with a step (e.g. `5/2`) means "every step
+        // starting at n, up to max". Without a step, hi == lo.
+        hi = stepMatch ? max : n
+      }
+    }
+
+    for (let v = lo; v <= hi; v += step) {
+      values.add(v)
+    }
+  }
+
+  if (values.size === 0) return null
+  return values
+}
+
+/**
+ * Compute the next run timestamp for a 5-field cron expression after
+ * the given `from` date (default: now). Returns null if no match is
+ * found within the next year (cron supports yearly schedules like
+ * `0 0 1 1 *`, so the look-ahead must be >= 366 days).
+ *
+ * Field semantics (standard cron, 5 fields):
+ *   minute         0-59
+ *   hour           0-23
+ *   day-of-month   1-31
+ *   month          1-12
+ *   day-of-week    0-6 (0 = Sunday) -- 7 is also accepted as Sunday
+ *
+ * DOM/DOW interaction follows POSIX cron: if BOTH fields are
+ * restricted (not `*`), a date matches when EITHER matches (OR).
+ * If only one is restricted, that one is the constraint. If both
+ * are `*`, every day matches.
+ *
+ * The algorithm uses smart-skip iteration: when a coarse field
+ * (month / day / hour) doesn't match, the cursor jumps forward to
+ * the next plausible candidate instead of probing minute-by-minute.
+ * This keeps the worst case under ~hundreds of iterations even for
+ * yearly schedules.
+ */
+export function computeNextRun(
+  cronExpr: string,
+  from: Date = new Date()
+): Date | null {
   const fields = cronExpr.trim().split(/\s+/)
   if (fields.length !== 5) return null
 
-  const parseField = (field: string, min: number, max: number): Set<number> => {
-    const values = new Set<number>()
-    if (field === '*') {
-      for (let v = min; v <= max; v++) values.add(v)
-      return values
-    }
-    // Handle step: "*/N"
-    const stepMatch = field.match(/^\*\/(\d+)$/)
-    if (stepMatch) {
-      const step = parseInt(stepMatch[1], 10)
-      for (let v = min; v <= max; v += step) values.add(v)
-      return values
-    }
-    // Handle range: "1-5"
-    const rangeMatch = field.match(/^(\d+)-(\d+)$/)
-    if (rangeMatch) {
-      const lo = parseInt(rangeMatch[1], 10)
-      const hi = parseInt(rangeMatch[2], 10)
-      for (let v = lo; v <= hi; v++) values.add(v)
-      return values
-    }
-    // Handle comma list: "1,3,5"
-    if (field.includes(',')) {
-      for (const part of field.split(',')) {
-        const n = parseInt(part, 10)
-        if (!Number.isNaN(n)) values.add(n)
-      }
-      return values
-    }
-    // Single value
-    const n = parseInt(field, 10)
-    if (!Number.isNaN(n)) values.add(n)
-    return values
+  const minutes = parseCronField(fields[0], 0, 59)
+  const hours = parseCronField(fields[1], 0, 23)
+  const doms = parseCronField(fields[2], 1, 31)
+  const months = parseCronField(fields[3], 1, 12)
+  // Day-of-week allows both 0 and 7 for Sunday (POSIX cron).
+  const dowsRaw = parseCronField(fields[4], 0, 7)
+
+  if (!minutes || !hours || !doms || !months || !dowsRaw) return null
+
+  // Normalize day-of-week: 7 -> 0 (both mean Sunday in standard cron).
+  const dows = new Set<number>()
+  for (const d of dowsRaw) dows.add(d === 7 ? 0 : d)
+
+  // Detect whether each day field was originally `*` -- needed for
+  // the POSIX DOM/DOW OR-rule below.
+  const domIsWildcard = fields[2] === '*'
+  const dowIsWildcard = fields[4] === '*'
+
+  const dayMatches = (date: Date): boolean => {
+    const dom = date.getUTCDate()
+    const dow = date.getUTCDay()
+    const domMatch = doms.has(dom)
+    const dowMatch = dows.has(dow)
+
+    if (domIsWildcard && dowIsWildcard) return true // both unrestricted -> every day
+    if (domIsWildcard) return dowMatch // only dow restricted
+    if (dowIsWildcard) return domMatch // only dom restricted
+    // POSIX: if both are restricted, match when EITHER matches.
+    return domMatch || dowMatch
   }
 
-  const minutes = parseField(fields[0], 0, 59)
-  const hours = parseField(fields[1], 0, 23)
-  const doms = parseField(fields[2], 1, 31)
-  const months = parseField(fields[3], 1, 12)
-  const dows = parseField(fields[4], 0, 6)
+  // Start at the next minute boundary after `from`.
+  const cursor = new Date(from.getTime())
+  cursor.setUTCSeconds(0, 0)
+  cursor.setUTCMilliseconds(0)
+  cursor.setUTCMinutes(cursor.getUTCMinutes() + 1)
 
-  // Skip ahead in 1-minute increments, max 7 days = 10080 mins
-  const cursor = new Date(from.getTime() + 60 * 1000)
-  cursor.setSeconds(0, 0)
-  const limit = 7 * 24 * 60
-  for (let i = 0; i < limit; i++) {
-    if (
-      minutes.has(cursor.getUTCMinutes()) &&
-      hours.has(cursor.getUTCHours()) &&
-      doms.has(cursor.getUTCDate()) &&
-      months.has(cursor.getUTCMonth() + 1) &&
-      dows.has(cursor.getUTCDay())
-    ) {
-      return new Date(cursor.getTime())
+  // Hard stop: 366 days ahead. Yearly cron (`0 0 1 1 *`) must be
+  // resolvable within this window; anything beyond is treated as null.
+  const maxDate = new Date(
+    from.getTime() + 366 * 24 * 60 * 60 * 1000
+  )
+
+  while (cursor.getTime() <= maxDate.getTime()) {
+    // Month check -- skip to the 1st of the next month if it fails.
+    if (!months.has(cursor.getUTCMonth() + 1)) {
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1, 1)
+      cursor.setUTCHours(0, 0, 0, 0)
+      continue
     }
-    cursor.setUTCMinutes(cursor.getUTCMinutes() + 1)
+    // Day-of-month / day-of-week check -- skip to next day if it fails.
+    if (!dayMatches(cursor)) {
+      cursor.setUTCDate(cursor.getUTCDate() + 1)
+      cursor.setUTCHours(0, 0, 0, 0)
+      continue
+    }
+    // Hour check -- skip to the next hour if it fails.
+    if (!hours.has(cursor.getUTCHours())) {
+      cursor.setUTCHours(cursor.getUTCHours() + 1, 0, 0, 0)
+      continue
+    }
+    // Minute check -- skip to the next minute if it fails.
+    if (!minutes.has(cursor.getUTCMinutes())) {
+      cursor.setUTCMinutes(cursor.getUTCMinutes() + 1, 0, 0)
+      continue
+    }
+    // All fields match -- this is the next scheduled run.
+    return new Date(cursor.getTime())
   }
+
   return null
 }
 
@@ -293,7 +431,7 @@ const cronStore = new Map<string, CronJobRow>()
 export async function scheduleJob(
   config: CronJobConfig
 ): Promise<CronJobRecord> {
-  const cronExpression = parseSchedule(config.schedule)
+  const cronExpression = scheduleToCron(config.schedule)
   if (!cronExpression) {
     throw new Error(
       `Could not parse schedule: "${config.schedule}". ` +
@@ -594,12 +732,21 @@ async function executeJobFromRow(
 }
 
 /**
- * List all cron jobs for a user, newest first.
+ * List cron jobs.
+ *
+ * Passing `'system'` as the userId is a system-level sentinel that
+ * returns ALL jobs regardless of ownership -- used by the Vercel Cron
+ * allDue handler to find every due job across all users. Any other
+ * userId returns only that user's jobs.
  */
-export async function getJobs(userId: string = 'demo-user'): Promise<CronJobRecord[]> {
+export async function getJobs(
+  userId: string = 'demo-user'
+): Promise<CronJobRecord[]> {
+  const systemLevel = userId === 'system'
+
   if (!dbAvailable) {
     const rows = Array.from(cronStore.values())
-      .filter((r) => r.userId === userId)
+      .filter((r) => systemLevel || r.userId === userId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     return rows.map(rowToRecord)
   }
@@ -607,7 +754,7 @@ export async function getJobs(userId: string = 'demo-user'): Promise<CronJobReco
   const rows = await withDbFallback(
     () =>
       db.hermesCronJob.findMany({
-        where: { userId },
+        where: systemLevel ? {} : { userId },
         orderBy: { createdAt: 'desc' },
       }),
     [] as Awaited<ReturnType<typeof db.hermesCronJob.findMany>>
@@ -617,9 +764,9 @@ export async function getJobs(userId: string = 'demo-user'): Promise<CronJobReco
     return rows.map((r) => rowToRecord(r as unknown as CronJobRow))
   }
 
-  // DB miss / fallback — also include in-memory rows.
+  // DB miss / fallback -- also include in-memory rows.
   const memRows = Array.from(cronStore.values())
-    .filter((r) => r.userId === userId)
+    .filter((r) => systemLevel || r.userId === userId)
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
   return memRows.map(rowToRecord)
 }

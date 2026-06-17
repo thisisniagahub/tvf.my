@@ -128,7 +128,7 @@ model McpServer {
   name         String
   type         String // 'hermes' | 'openclaw' | 'custom'
   endpoint     String // WebSocket or HTTP URL
-  apiKey       String? // Encrypted API key (best-effort; plaintext for now)
+  apiKey       String? // AES-256-GCM encrypted (iv:tag:ciphertext format)
   status       String    @default("disconnected") // 'connected' | 'disconnected' | 'error'
   capabilities String // JSON-encoded array of capability strings
   lastConnected DateTime?
@@ -137,6 +137,26 @@ model McpServer {
 
   @@index([userId])
   @@map("mcp_servers")
+}
+
+/// Agent v2 — Encrypted platform credentials (Shopee / Lazada / TikTok /
+/// Facebook / Instagram) used by the headless browser sessions.
+///
+/// `encryptedSecret` is the AES-256-GCM ciphertext produced by
+/// `src/lib/crypto.ts`. The serialized shape is `iv:tag:ciphertext` (all
+/// base64). The plaintext password is NEVER persisted — it is decrypted
+/// only on demand via `CredentialStore.getCredential()`.
+model AgentCredential {
+  id              String   @id @default(cuid())
+  userId          String
+  platform        String
+  username        String
+  encryptedSecret String   // AES-256-GCM: iv:tag:ciphertext (base64)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, platform])
+  @@map("agent_credentials")
 }
 
 /// Plugins — installable extensions (automation/agent/integration) the user

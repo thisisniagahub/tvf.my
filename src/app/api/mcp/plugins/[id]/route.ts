@@ -3,6 +3,7 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger, handleApiError } from '@/lib/logger'
 import { validateInput, pluginToggleSchema } from '@/lib/validation'
 import { pluginService } from '@/lib/mcp/plugin-registry'
+import { requireUser } from '@/lib/auth'
 
 /**
  * Plugin — Single Record API
@@ -14,10 +15,19 @@ import { pluginService } from '@/lib/mcp/plugin-registry'
  * DELETE /api/mcp/plugins/<id>
  *        Uninstalls the plugin permanently.
  *
+ * The authenticated user is resolved server-side via `requireUser()`.
+ * The lookup is scoped to `user.id`, so a missing-or-foreign-owned
+ * plugin returns the same 404 — clients cannot probe or mutate
+ * another user's plugins by guessing ids.
+ *
  * All endpoints are rate-limited at the standard API tier.
  */
 
-const DEMO_USER_ID = 'demo-user'
+/** Returns a 404 so the caller cannot distinguish "missing" from "owned
+ * by someone else". */
+function notFound(): NextResponse {
+  return NextResponse.json({ error: 'Plugin not found' }, { status: 404 })
+}
 
 export async function PUT(
   request: NextRequest,
@@ -27,6 +37,7 @@ export async function PUT(
   if (limited) return limited
 
   try {
+    const user = await requireUser()
     const { id } = await params
     const body = await request.json()
     const validation = validateInput(pluginToggleSchema, body)
@@ -37,17 +48,16 @@ export async function PUT(
       )
     }
 
-    // Verify ownership before toggling.
-    const existing = await pluginService.getPlugin(id, DEMO_USER_ID)
+    // Verify ownership before toggling. `pluginService.getPlugin`
+    // returns null when the id is missing OR owned by another user.
+    const existing = await pluginService.getPlugin(id, user.id)
     if (!existing) {
-      return NextResponse.json(
-        { error: 'Plugin not found' },
-        { status: 404 }
-      )
+      return notFound()
     }
 
     const plugin = await pluginService.togglePlugin(id, validation.data.enabled)
     logger.info('Plugin toggled via API', {
+      userId: user.id,
       pluginId: id,
       enabled: plugin.enabled,
     })
@@ -71,19 +81,20 @@ export async function DELETE(
   if (limited) return limited
 
   try {
+    const user = await requireUser()
     const { id } = await params
 
     // Verify ownership before uninstalling.
-    const existing = await pluginService.getPlugin(id, DEMO_USER_ID)
+    const existing = await pluginService.getPlugin(id, user.id)
     if (!existing) {
-      return NextResponse.json(
-        { error: 'Plugin not found' },
-        { status: 404 }
-      )
+      return notFound()
     }
 
     await pluginService.uninstallPlugin(id)
-    logger.info('Plugin uninstalled via API', { pluginId: id })
+    logger.info('Plugin uninstalled via API', {
+      userId: user.id,
+      pluginId: id,
+    })
 
     return NextResponse.json({ success: true, id })
   } catch (error) {

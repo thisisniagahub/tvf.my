@@ -9,6 +9,7 @@ import {
 import { getTaskById } from '@/lib/agent-v2/task-definitions'
 import { jobRegistry, serializeJob } from '@/lib/agent-v2/job-registry'
 import type { VlaLoopConfig } from '@/lib/agent-v2/vla-loop'
+import { requireAuth } from '@/lib/auth'
 
 /**
  * Agent V2 — Task Execute API (P6-4 unified)
@@ -16,13 +17,18 @@ import type { VlaLoopConfig } from '@/lib/agent-v2/vla-loop'
  * POST /api/agent/execute
  *   Body: {
  *     taskId: string,
- *     userId?: string,           // P6-3
  *     steps?: string[],          // P6-3 (override planned steps)
  *     options?: {                // P6-4 — switches to async job mode
  *       maxIterations?: number,  //   1..20
  *       timeout?: number,        //   30..300 seconds
  *     },
  *   }
+ *
+ * The authenticated user is resolved server-side via `requireAuth()` —
+ * any `userId` in the request body is ignored (and stripped by the
+ * Zod schema) to prevent cross-user impersonation. Anonymous demo-mode
+ * callers are rejected with 401 because launching an AI job is a
+ * sensitive, credit-consuming action.
  *
  * Two response modes:
  *
@@ -63,7 +69,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { taskId, userId, options } = validation.data
+    const { taskId, options } = validation.data
+
+    // Sensitive endpoint — launching an AI job consumes credits, so
+    // a real session is required (no demo fallback). The userId is
+    // resolved server-side; any `userId` field sent in the body is
+    // silently stripped by the Zod schema and ignored here.
+    const user = await requireAuth()
+    const userId = user.id
 
     // ---- P6-4 async job mode ----
     if (options) {
@@ -80,7 +93,7 @@ export async function POST(request: NextRequest) {
         goal: task.goal,
         maxIterations: options.maxIterations ?? DEFAULT_MAX_ITERATIONS,
         timeout: options.timeout ?? DEFAULT_TIMEOUT_SECONDS,
-        userId: userId ?? 'demo-user',
+        userId,
       }
 
       const jobId = jobRegistry.start(config)
@@ -155,7 +168,7 @@ export async function POST(request: NextRequest) {
 
     logger.info('Agent task executed via API (P6-3 sync)', {
       taskId,
-      userId: userId ?? 'demo-user',
+      userId,
       actionCount: plannedActions.length,
     })
 
@@ -170,6 +183,9 @@ export async function POST(request: NextRequest) {
       count: plannedActions.length,
     })
   } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const { error: msg, status } = handleApiError(
       error,
       'Agent execute',

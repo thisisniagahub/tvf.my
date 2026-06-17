@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger, handleApiError } from '@/lib/logger'
 import { validateInput, contentScriptSchema } from '@/lib/validation'
+import { requireUser } from '@/lib/auth'
 
 function generateFallbackScript(
   template: string,
@@ -52,6 +53,11 @@ export async function POST(request: NextRequest) {
     }
     const { template, productName, language, tone, duration } = validation.data
 
+    // Resolve the user server-side so the audit log attributes the
+    // AI completion call to the right account. Demo-mode fallback is
+    // allowed — the underlying call is rate-limited per-IP.
+    const user = await requireUser()
+
     // Try real AI
     try {
       const ZAI = (await import('z-ai-web-dev-sdk')).default
@@ -85,6 +91,7 @@ Requirements:
       return NextResponse.json({ script, source: 'ai' })
     } catch (aiError) {
       logger.warn('Content script AI unavailable, using fallback', {
+        userId: user.id,
         error: aiError instanceof Error ? aiError.message : 'unknown',
       })
       return NextResponse.json({

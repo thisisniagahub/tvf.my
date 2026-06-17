@@ -171,19 +171,20 @@ export const toolGatewaySchema = z.object({
 // ============== Agent v2 (VLA Loop) Schemas ==============
 //
 // Unified P6-3 + P6-4 surface:
-//   - agentExecuteSchema: POST /api/agent/execute | POST /api/agent/tasks
-//       Body: { taskId, userId?, steps?, options?: { maxIterations?, timeout? } }
-//       - P6-3 callers pass { taskId, userId?, steps? } for single-pass planning.
+//   - agentExecuteSchema: POST /api/agent/execute
+//       Body: { taskId, steps?, options?: { maxIterations?, timeout? } }
+//       - P6-3 callers pass { taskId, steps? } for single-pass planning.
 //       - P6-4 callers pass { taskId, options? } to start a multi-pass VlaLoop job.
+//       - `userId` is intentionally absent — it is resolved server-side
+//         via `requireAuth()` so a client cannot impersonate another user.
 //   - agentStopSchema:    POST /api/agent/stop
-//       Body: { taskId?, userId?, jobId? }
-//       - P6-3 callers pass { taskId?, userId? } for socket-based stop.
+//       Body: { taskId?, jobId? }
+//       - P6-3 callers pass { taskId? } for socket-based stop.
 //       - P6-4 callers pass { jobId } to stop a registered VlaLoop job.
 //   - credentialSchema:   POST /api/agent/credentials (P6-4)
 
 export const agentExecuteSchema = z.object({
   taskId: z.string().min(1, 'taskId is required').max(80),
-  userId: z.string().max(80).optional(),
   /** Optional override of the planned steps (otherwise uses task defaults). */
   steps: z.array(z.string().max(500)).max(20).optional(),
   /** P6-4: optional loop-budget overrides for the multi-pass VlaLoop. */
@@ -197,7 +198,6 @@ export const agentExecuteSchema = z.object({
 
 export const agentStopSchema = z.object({
   taskId: z.string().min(1, 'taskId is required').max(80).optional(),
-  userId: z.string().max(80).optional(),
   /** P6-4: stop a specific VlaLoop job by id. */
   jobId: z.string().min(1, 'jobId is required').optional(),
 })

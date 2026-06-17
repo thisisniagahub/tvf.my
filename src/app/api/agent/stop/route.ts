@@ -3,6 +3,7 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger, handleApiError } from '@/lib/logger'
 import { validateInput, agentStopSchema } from '@/lib/validation'
 import { jobRegistry, serializeJob } from '@/lib/agent-v2/job-registry'
+import { requireUser } from '@/lib/auth'
 
 /**
  * Agent V2 — Task Stop API (P6-4 unified)
@@ -10,9 +11,12 @@ import { jobRegistry, serializeJob } from '@/lib/agent-v2/job-registry'
  * POST /api/agent/stop
  *   Body: {
  *     taskId?: string,  // P6-3 — log-only audit hook
- *     userId?: string,  // P6-3
  *     jobId?: string,   // P6-4 — stop a registered VlaLoop job
  *   }
+ *
+ * The authenticated user is resolved server-side via `requireUser()`.
+ * Any `userId` field sent in the body is silently stripped by the
+ * Zod schema and ignored here to prevent cross-user impersonation.
  *
  * Two response modes:
  *
@@ -45,7 +49,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { taskId, userId, jobId } = validation.data
+    const { taskId, jobId } = validation.data
+
+    // Resolve the user server-side (demo-mode fallback is allowed —
+    // stopping a job is a non-sensitive UI action). Any `userId` in
+    // the body is silently stripped by the Zod schema.
+    const user = await requireUser()
 
     // ---- P6-4 job mode ----
     if (jobId) {
@@ -68,7 +77,7 @@ export async function POST(request: NextRequest) {
     // ---- P6-3 audit mode ----
     logger.info('Agent task stop requested (P6-3 audit)', {
       taskId: taskId ?? 'unknown',
-      userId: userId ?? 'demo-user',
+      userId: user.id,
     })
 
     return NextResponse.json({

@@ -187,11 +187,12 @@ describe('rate-limit', () => {
   })
 
   describe('getClientIp()', () => {
-    it('extracts IP from x-forwarded-for header', () => {
+    it('extracts IP from x-forwarded-for header (rightmost = infra-set)', () => {
       const req = new Request('http://localhost/api/test', {
         headers: { 'x-forwarded-for': '1.2.3.4, 5.6.7.8' },
       })
-      expect(getClientIp(req)).toBe('1.2.3.4')
+      // Rightmost is set by our own infra (most trustworthy)
+      expect(getClientIp(req)).toBe('5.6.7.8')
     })
 
     it('trims whitespace around the IP from x-forwarded-for', () => {
@@ -208,14 +209,14 @@ describe('rate-limit', () => {
       expect(getClientIp(req)).toBe('10.0.0.1')
     })
 
-    it('prefers x-forwarded-for over x-real-ip', () => {
+    it('prefers x-real-ip over x-forwarded-for (security: real-ip is infra-set)', () => {
       const req = new Request('http://localhost/api/test', {
         headers: {
           'x-forwarded-for': '1.1.1.1',
           'x-real-ip': '2.2.2.2',
         },
       })
-      expect(getClientIp(req)).toBe('1.1.1.1')
+      expect(getClientIp(req)).toBe('2.2.2.2')
     })
 
     it('returns "unknown" when neither header is present', () => {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger, handleApiError } from '@/lib/logger'
 import { validateInput, aiThumbnailsSchema } from '@/lib/validation'
+import { requireUser } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   const limited = applyRateLimit(request, RATE_LIMITS.ai, 'ai-thumbnails')
@@ -14,6 +15,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: validation.status })
     }
     const { productName, style, textOverlay } = validation.data
+
+    // Resolve the user server-side so the audit log attributes the
+    // image-generation call to the right account. Demo-mode fallback
+    // is allowed — the underlying call is rate-limited per-IP.
+    const user = await requireUser()
 
     const stylePrompts: Record<string, string> = {
       Bold: 'bold vibrant colors, high contrast, eye-catching, modern social media thumbnail style, large text-friendly composition',
@@ -49,7 +55,7 @@ export async function POST(request: NextRequest) {
     } catch (aiError) {
       logger.error(
         'Image generation AI error',
-        { productName, style },
+        { userId: user.id, productName, style },
         aiError
       )
       return NextResponse.json({

@@ -3,6 +3,7 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger, handleApiError } from '@/lib/logger'
 import { validateInput, hermesSkillUpdateSchema } from '@/lib/validation'
 import { skillsEngine } from '@/lib/hermes-v2/skills-engine'
+import { requireUser } from '@/lib/auth'
 
 /**
  * HERMES Skill detail API
@@ -11,6 +12,11 @@ import { skillsEngine } from '@/lib/hermes-v2/skills-engine'
  * PUT    /api/hermes/skills/[id]   — partial update (name, description,
  *                                    category, content, trigger, status)
  * DELETE /api/hermes/skills/[id]   — permanently delete
+ *
+ * The authenticated user is resolved server-side via `requireUser()`
+ * (demo-mode fallback allowed) so the audit log records who mutated
+ * the skill. Skills are shared (no `userId` column), so there is no
+ * per-user ownership check.
  *
  * Returns 404 when the skill id does not exist.
  */
@@ -27,10 +33,12 @@ export async function GET(
   if (limited) return limited
 
   try {
+    const user = await requireUser()
     const { id } = await params
     const skill = await skillsEngine.loadSkill(id)
     if (!skill) return notFound()
 
+    logger.info('Skill fetched via API', { userId: user.id, id })
     return NextResponse.json({ skill })
   } catch (error) {
     const { error: msg, status } = handleApiError(
@@ -50,6 +58,7 @@ export async function PUT(
   if (limited) return limited
 
   try {
+    const user = await requireUser()
     const { id } = await params
     const body = await request.json()
     const validation = validateInput(hermesSkillUpdateSchema, body)
@@ -68,7 +77,11 @@ export async function PUT(
     const skill = await skillsEngine.updateSkill(id, validation.data)
     if (!skill) return notFound()
 
-    logger.info('Skill updated via API', { id, fields: Object.keys(validation.data) })
+    logger.info('Skill updated via API', {
+      userId: user.id,
+      id,
+      fields: Object.keys(validation.data),
+    })
     return NextResponse.json({ skill })
   } catch (error) {
     const { error: msg, status } = handleApiError(
@@ -88,6 +101,7 @@ export async function DELETE(
   if (limited) return limited
 
   try {
+    const user = await requireUser()
     const { id } = await params
 
     // Verify existence first so we can return a proper 404 (Prisma's
@@ -96,7 +110,7 @@ export async function DELETE(
     if (!existing) return notFound()
 
     await skillsEngine.deleteSkill(id)
-    logger.info('Skill deleted via API', { id })
+    logger.info('Skill deleted via API', { userId: user.id, id })
     return NextResponse.json({ success: true, id })
   } catch (error) {
     const { error: msg, status } = handleApiError(

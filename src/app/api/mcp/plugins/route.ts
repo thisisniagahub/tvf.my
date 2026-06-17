@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
-import { handleApiError } from '@/lib/logger'
+import { handleApiError, logger } from '@/lib/logger'
 import { pluginService } from '@/lib/mcp/plugin-registry'
+import { requireUser } from '@/lib/auth'
 
 /**
  * Plugins API
@@ -11,23 +12,34 @@ import { pluginService } from '@/lib/mcp/plugin-registry'
  *     (with `installedNames` set so the UI can grey out installed
  *     entries). One round-trip renders the entire Plugins section.
  *
+ * The authenticated user is resolved server-side via `requireUser()` —
+ * the resolved `user.id` scopes the installed-plugins query so a
+ * caller only ever sees their own plugins.
+ *
  * All endpoints are rate-limited at the standard API tier.
  */
-
-const DEMO_USER_ID = 'demo-user'
 
 export async function GET(request: NextRequest) {
   const limited = applyRateLimit(request, RATE_LIMITS.api, 'mcp-plugins-get')
   if (limited) return limited
 
   try {
+    // Resolve the user server-side so the installed-plugins query is
+    // scoped to the caller. Demo-mode fallback allowed — the demo
+    // user's plugins are returned.
+    const user = await requireUser()
     const [installed, installedNamesSet] = await Promise.all([
-      pluginService.getInstalledPlugins(DEMO_USER_ID),
-      pluginService.getInstalledCatalogNames(DEMO_USER_ID),
+      pluginService.getInstalledPlugins(user.id),
+      pluginService.getInstalledCatalogNames(user.id),
     ])
 
     const installedNames = Array.from(installedNamesSet)
     const catalog = pluginService.getCatalog(installedNames)
+
+    logger.info('Plugins listed via API', {
+      userId: user.id,
+      installedCount: installed.length,
+    })
 
     return NextResponse.json({
       installed,

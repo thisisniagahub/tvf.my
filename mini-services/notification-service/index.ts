@@ -4,9 +4,15 @@ import { Server } from 'socket.io'
 const httpServer = createServer()
 const io = new Server(httpServer, {
   path: '/',
+  // Restricted origins — production deployments should set
+  // ALLOWED_ORIGINS to a comma-separated list of trusted domains
+  // (e.g. "https://tvf.my,https://www.tvf.my"). Wildcard "*" is
+  // insecure because it allows any website to open a Socket.io
+  // connection (and with credentials:true, to send cookies).
   cors: {
-    origin: '*',
+    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? ['http://localhost:3000'],
     methods: ['GET', 'POST'],
+    credentials: true,
   },
   pingTimeout: 60000,
   pingInterval: 25000,

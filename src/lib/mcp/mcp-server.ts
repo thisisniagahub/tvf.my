@@ -9,10 +9,14 @@
  *  - SQLite does not support list-of-primitives, so `capabilities` is stored
  *    as a JSON-encoded string. The application layer handles
  *    (de)serialization via JSON.parse / JSON.stringify.
- *  - `apiKey` is stored as plaintext for the demo (no encryption key
- *    configured in this sandbox). The schema column is named `apiKey` but
- *    should be treated as opaque — never log it or return it to clients in
- *    full. We expose only a masked preview via `maskApiKey()`.
+ *  - `apiKey` is encrypted at rest with AES-256-GCM via `src/lib/crypto.ts`
+ *    before being written to either the DB or the in-memory fallback. The
+ *    serialized shape is `iv:tag:ciphertext` (all base64). The plaintext
+ *    key is only decrypted in `testConnection()` immediately before being
+ *    sent in the outbound request — it is never returned from `getServers`
+ *    / `getServer()`. Those endpoints return a masked placeholder
+ *    (`••••••••`) when a key is set so the UI can show "key configured"
+ *    without leaking any byte of the ciphertext.
  *
  * Vercel fallback: On Vercel serverless, SQLite is not persistent. When
  * the DB is unavailable (or a query fails at runtime), every method
@@ -23,6 +27,7 @@
 
 import { db, dbAvailable, withDbFallback } from '@/lib/db'
 import { logger } from '@/lib/logger'
+import { encrypt, decrypt } from '@/lib/crypto'
 
 export type McpServerType = 'hermes' | 'openclaw' | 'custom'
 export type McpServerStatus = 'connected' | 'disconnected' | 'error'
@@ -92,9 +97,12 @@ function parseCapabilities(raw: string | null | undefined): string[] {
 }
 
 function maskApiKey(key?: string | null): string | undefined {
+  // The stored value is AES-256-GCM ciphertext. We never leak any byte of
+  // it (not even the IV / tag prefix) — just signal "key configured" to
+  // the UI with a fixed placeholder. Returning `undefined` for unset keys
+  // lets the UI distinguish "no key" from "key set".
   if (!key) return undefined
-  if (key.length <= 8) return '••••'
-  return `${key.slice(0, 4)}••••${key.slice(-4)}`
+  return '••••••••'
 }
 
 /** Internal in-memory server row (mirrors the Prisma shape). */
@@ -194,6 +202,12 @@ export class McpServerService {
     assertType(config.type)
     const now = new Date()
 
+    // Encrypt the apiKey BEFORE persisting it anywhere. The plaintext
+    // is never written to disk or kept in the in-memory mirror.
+    const encryptedApiKey = config.apiKey?.trim()
+      ? encrypt(config.apiKey.trim())
+      : null
+
     if (!dbAvailable) {
       const row: InMemoryServerRow = {
         id: generateId(),
@@ -201,7 +215,7 @@ export class McpServerService {
         name: config.name.trim(),
         type: config.type,
         endpoint: config.endpoint.trim(),
-        apiKey: config.apiKey?.trim() || null,
+        apiKey: encryptedApiKey,
         status: 'disconnected',
         capabilities: JSON.stringify(config.capabilities ?? []),
         lastConnected: null,
@@ -226,7 +240,7 @@ export class McpServerService {
             name: config.name.trim(),
             type: config.type,
             endpoint: config.endpoint.trim(),
-            apiKey: config.apiKey?.trim() || null,
+            apiKey: encryptedApiKey,
             status: 'disconnected',
             capabilities: JSON.stringify(config.capabilities ?? []),
           },
@@ -244,14 +258,15 @@ export class McpServerService {
       return this.mapServer(server)
     }
 
-    // DB failed — mirror into in-memory store.
+    // DB failed — mirror into in-memory store. Reuse the encrypted key
+    // computed above so the in-memory mirror holds ciphertext too.
     const row: InMemoryServerRow = {
       id: generateId(),
       userId,
       name: config.name.trim(),
       type: config.type,
       endpoint: config.endpoint.trim(),
-      apiKey: config.apiKey?.trim() || null,
+      apiKey: encryptedApiKey,
       status: 'disconnected',
       capabilities: JSON.stringify(config.capabilities ?? []),
       lastConnected: null,
@@ -279,7 +294,11 @@ export class McpServerService {
     const data: Record<string, unknown> = {}
     if (patch.name !== undefined) data.name = patch.name.trim()
     if (patch.endpoint !== undefined) data.endpoint = patch.endpoint.trim()
-    if (patch.apiKey !== undefined) data.apiKey = patch.apiKey.trim() || null
+    // Encrypt on update too — a caller submitting a fresh plaintext key
+    // overwrites the previous ciphertext with a new AES-256-GCM blob.
+    if (patch.apiKey !== undefined) {
+      data.apiKey = patch.apiKey.trim() ? encrypt(patch.apiKey.trim()) : null
+    }
     if (patch.capabilities !== undefined) data.capabilities = JSON.stringify(patch.capabilities)
     if (patch.type !== undefined) data.type = patch.type
 
@@ -365,9 +384,20 @@ export class McpServerService {
     }
 
     try {
+      // Decrypt the API key just-in-time for the outbound request. The
+      // plaintext is held in a local `const` and goes out of scope at the
+      // end of this try block — it is never logged or persisted.
+      const decryptedApiKey = server.apiKey ? decrypt(server.apiKey) : null
+
       // Simulate the WebSocket/HTTP handshake. A real implementation would
-      // open a `ws://` connection to `server.endpoint` and send the MCP
-      // `initialize` message, then await the `initialized` ack.
+      // open a `ws://` connection to `server.endpoint`, send the MCP
+      // `initialize` message with `Authorization: Bearer ${decryptedApiKey}`,
+      // then await the `initialized` ack.
+      //
+      // (decryptedApiKey is intentionally referenced here so the linter
+      // doesn't flag it as unused — once a real transport is wired up it
+      // will be sent in the headers above.)
+      void decryptedApiKey
       await new Promise((r) => setTimeout(r, 1000))
 
       // Naive sanity check — endpoint must be http(s) or ws(s)

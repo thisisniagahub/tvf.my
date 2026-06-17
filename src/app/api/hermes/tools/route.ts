@@ -9,6 +9,7 @@ import {
   type TTSResult,
   type WebPageResult,
 } from '@/lib/hermes-v2/tool-gateway'
+import { requireUser } from '@/lib/auth'
 
 /**
  * HERMES v2 Tool Gateway API
@@ -21,7 +22,9 @@ import {
  *      the typed result. TTS returns raw WAV bytes (audio/wav); all
  *      other tools return JSON.
  *
- * Per-tool param contracts:
+ * The authenticated user is resolved server-side via `requireUser()`
+ * (demo-mode fallback allowed) so the audit log attributes each tool
+ * call to the right account. Per-tool param contracts:
  *   webSearch:    { query: string, num?: number  (default 10, max 50) }
  *   generateImage:{ prompt: string, size?: SDK-supported size string }
  *   textToSpeech: { text: string, voice?: string (default 'tongtong'),
@@ -49,6 +52,11 @@ export async function POST(request: NextRequest) {
     const { tool, params } = validation.data
     const p = (params ?? {}) as Record<string, unknown>
 
+    // Resolve the user server-side so the audit log attributes each
+    // tool invocation to the right account. Demo-mode fallback is
+    // allowed — the underlying call is rate-limited per-IP.
+    const user = await requireUser()
+
     switch (tool) {
       case 'webSearch': {
         const query = typeof p.query === 'string' ? p.query : ''
@@ -66,6 +74,7 @@ export async function POST(request: NextRequest) {
           num
         )
         logger.info('Tool gateway: webSearch via API', {
+          userId: user.id,
           query,
           resultCount: results.length,
         })
@@ -109,6 +118,7 @@ export async function POST(request: NextRequest) {
           )
         }
         logger.info('Tool gateway: generateImage via API', {
+          userId: user.id,
           prompt,
           size,
         })
@@ -147,6 +157,7 @@ export async function POST(request: NextRequest) {
           )
         }
         logger.info('Tool gateway: textToSpeech via API', {
+          userId: user.id,
           voice,
           textLength: text.length,
           bytes: result.audio.length,
@@ -181,6 +192,7 @@ export async function POST(request: NextRequest) {
           )
         }
         logger.info('Tool gateway: readWebPage via API', {
+          userId: user.id,
           url,
           title: result.title,
         })

@@ -4,6 +4,7 @@ import { logger, handleApiError } from '@/lib/logger'
 import { skillsEngine } from '@/lib/hermes-v2/skills-engine'
 import { SEED_SKILLS } from '@/lib/hermes-v2/seed-skills'
 import { dbAvailable } from '@/lib/db'
+import { requireUser } from '@/lib/auth'
 
 /**
  * HERMES Seed API
@@ -21,7 +22,10 @@ import { dbAvailable } from '@/lib/db'
  * access, so this route reports success either way (`mode: 'db' |
  * 'in-memory'`) — no error is ever surfaced to the caller.
  *
- * Useful for first-run setup or resetting the catalog after a db wipe.
+ * The authenticated user is resolved server-side via `requireUser()`
+ * (demo-mode fallback allowed) so the audit log records who triggered
+ * the seed. Skills themselves are shared (no `userId` column), so no
+ * ownership check is required.
  */
 
 export async function POST(request: NextRequest) {
@@ -29,6 +33,7 @@ export async function POST(request: NextRequest) {
   if (limited) return limited
 
   try {
+    const user = await requireUser()
     const existing = await skillsEngine.getAllSkills()
     const existingNames = new Set(existing.map((s) => s.name))
 
@@ -45,6 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     logger.info('HERMES seed completed', {
+      userId: user.id,
       created: created.length,
       skipped: skipped.length,
       mode: dbAvailable ? 'db' : 'in-memory',
@@ -73,6 +79,7 @@ export async function GET(request: NextRequest) {
   if (limited) return limited
 
   try {
+    const user = await requireUser()
     const existing = await skillsEngine.getAllSkills()
     const existingNames = new Set(existing.map((s) => s.name))
 
@@ -81,6 +88,8 @@ export async function GET(request: NextRequest) {
       category: seed.category,
       present: existingNames.has(seed.name),
     }))
+
+    logger.info('HERMES seed status checked', { userId: user.id })
 
     return NextResponse.json({
       seeds: status,

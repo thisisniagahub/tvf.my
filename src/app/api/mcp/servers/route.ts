@@ -3,34 +3,44 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger, handleApiError } from '@/lib/logger'
 import { validateInput, mcpServerSchema } from '@/lib/validation'
 import { mcpServerService } from '@/lib/mcp/mcp-server'
+import { requireUser } from '@/lib/auth'
 
 /**
  * MCP Servers API
  *
  * GET  /api/mcp/servers
- *      Lists every MCP server configured by the demo user. Returns the
- *      pre-built catalog alongside so the UI can render the "Add Server"
- *      picker without a second round-trip.
+ *      Lists every MCP server configured by the authenticated user.
+ *      Returns the pre-built catalog alongside so the UI can render the
+ *      "Add Server" picker without a second round-trip.
  *
  * POST /api/mcp/servers
  *      Body: { name, type: 'hermes'|'openclaw'|'custom', endpoint, apiKey?, capabilities? }
  *      Persists a new MCP server with status `disconnected`. The UI should
  *      call POST /api/mcp/servers/<id>/test to flip it to `connected`.
  *
+ * The authenticated user is resolved server-side via `requireUser()` —
+ * the resolved `user.id` scopes both reads and writes so a caller
+ * only ever sees their own servers and cannot create servers owned
+ * by another account.
+ *
  * All endpoints are rate-limited at the standard API tier.
  */
-
-const DEMO_USER_ID = 'demo-user'
 
 export async function GET(request: NextRequest) {
   const limited = applyRateLimit(request, RATE_LIMITS.api, 'mcp-servers-get')
   if (limited) return limited
 
   try {
+    const user = await requireUser()
     const [servers, profiles] = await Promise.all([
-      mcpServerService.getServers(DEMO_USER_ID),
+      mcpServerService.getServers(user.id),
       Promise.resolve(mcpServerService.getPreBuiltProfiles()),
     ])
+
+    logger.info('MCP servers listed via API', {
+      userId: user.id,
+      count: servers.length,
+    })
 
     return NextResponse.json({
       servers,
@@ -61,7 +71,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const server = await mcpServerService.createServer(DEMO_USER_ID, {
+    // Resolve the user server-side so the new server is owned by the
+    // caller. Demo-mode fallback allowed — servers become demo-owned.
+    const user = await requireUser()
+
+    const server = await mcpServerService.createServer(user.id, {
       name: validation.data.name,
       type: validation.data.type,
       endpoint: validation.data.endpoint,
@@ -70,6 +84,7 @@ export async function POST(request: NextRequest) {
     })
 
     logger.info('MCP server created via API', {
+      userId: user.id,
       serverId: server.id,
       name: server.name,
       type: server.type,

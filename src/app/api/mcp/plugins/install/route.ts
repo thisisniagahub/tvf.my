@@ -3,6 +3,7 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger, handleApiError } from '@/lib/logger'
 import { validateInput, pluginInstallSchema } from '@/lib/validation'
 import { pluginService } from '@/lib/mcp/plugin-registry'
+import { requireUser } from '@/lib/auth'
 
 /**
  * Plugin Install API
@@ -12,13 +13,15 @@ import { pluginService } from '@/lib/mcp/plugin-registry'
  *      Installs a plugin from the static catalog by its id. Returns the
  *      freshly-installed plugin record.
  *
+ * The authenticated user is resolved server-side via `requireUser()` —
+ * the resolved `user.id` is passed as the owner so the plugin is
+ * scoped to the caller (any `userId` in the body is ignored).
+ *
  * Idempotency: throws (400) if the plugin is already installed.
  *
  * Rate-limited at the AI tier (lower limit) because installed plugins
  * typically trigger automation work on enable.
  */
-
-const DEMO_USER_ID = 'demo-user'
 
 export async function POST(request: NextRequest) {
   const limited = applyRateLimit(
@@ -38,12 +41,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Resolve the user server-side so the installed plugin is owned
+    // by the caller. Demo-mode fallback allowed — installs become
+    // demo-owned.
+    const user = await requireUser()
     const plugin = await pluginService.installPlugin(
-      DEMO_USER_ID,
+      user.id,
       validation.data.catalogId
     )
 
     logger.info('Plugin installed via API', {
+      userId: user.id,
       pluginId: plugin.id,
       catalogId: validation.data.catalogId,
       name: plugin.name,

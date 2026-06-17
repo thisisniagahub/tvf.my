@@ -104,12 +104,46 @@ export const RATE_LIMITS = {
 
 /**
  * Helper to get client IP from Next.js request headers.
+ *
+ * Header priority:
+ *   1. `x-vercel-forwarded-for` (Vercel-native, trustworthy) — leftmost
+ *      entry is the original client IP.
+ *   2. `x-real-ip` (set by Vercel / our Caddy infra) — single value,
+ *      trustworthy.
+ *   3. `x-forwarded-for` — fall back to the RIGHTMOST entry. The
+ *      rightmost value is appended by our own trusted infrastructure
+ *      (Caddy → app), while the leftmost entries may be spoofed by the
+ *      client. Picking the rightmost is defense-in-depth: even if a
+ *      client injects a fake `X-Forwarded-For: 1.2.3.4` header, our
+ *      infra's appended entry (the real remote_host) takes precedence.
+ *   4. 'unknown' — no IP detected (rate-limit falls back to a shared
+ *      'unknown' bucket, which is intentionally restrictive).
  */
 export function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0].trim()
+  // 1. Vercel sets x-vercel-forwarded-for with the real client IP.
+  //    Take the FIRST entry (leftmost = original client).
+  const vercelFwd = request.headers.get('x-vercel-forwarded-for')
+  if (vercelFwd) {
+    const first = vercelFwd.split(',')[0]?.trim()
+    if (first) return first
+  }
+
+  // 2. x-real-ip is set by Vercel / our infrastructure — trustworthy.
   const realIp = request.headers.get('x-real-ip')
-  if (realIp) return realIp
+  if (realIp) return realIp.trim()
+
+  // 3. Fallback: x-forwarded-for — take RIGHTMOST (set by our infra,
+  //    not client). Leftmost entries can be spoofed by clients that
+  //    send their own X-Forwarded-For header before reaching us.
+  const forwarded = request.headers.get('x-forwarded-for')
+  if (forwarded) {
+    const parts = forwarded.split(',').map((s) => s.trim()).filter(Boolean)
+    if (parts.length > 0) {
+      // Rightmost is set by our own infra (most trustworthy).
+      return parts[parts.length - 1] || 'unknown'
+    }
+  }
+
   return 'unknown'
 }
 

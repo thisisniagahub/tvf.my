@@ -12,5 +12,8 @@
     "src/app/api/ai/voiceover/route.ts": { "maxDuration": 60 },
     "src/app/api/agent/execute/route.ts": { "maxDuration": 60 },
     "src/app/api/content/script/route.ts": { "maxDuration": 60 }
-  }
+  },
+  "crons": [
+    { "path": "/api/hermes/cron/execute?mode=allDue", "schedule": "*/5 * * * *" }
+  ]
 }

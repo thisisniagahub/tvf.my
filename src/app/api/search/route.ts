@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { demoProducts, demoLinks, demoCampaigns } from '@/lib/demo-data'
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
-import { handleApiError } from '@/lib/logger'
+import { handleApiError, logger } from '@/lib/logger'
 import { validateInput, searchSchema } from '@/lib/validation'
+import { requireUser } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   const limited = applyRateLimit(request, RATE_LIMITS.search, 'search')
   if (limited) return limited
 
   try {
+    // Resolve the user server-side so the audit log records who searched.
+    // Demo-mode fallback allowed — search results are shared demo data.
+    const user = await requireUser()
+
     const { searchParams } = new URL(request.url)
     const rawQ = searchParams.get('q') ?? ''
 
@@ -55,6 +60,13 @@ export async function GET(request: NextRequest) {
         icon: 'Megaphone',
         badge: c.status === 'active' ? 'ACTIVE' : undefined,
       }))
+
+    logger.info('Search executed via API', {
+      userId: user.id,
+      query: q,
+      resultCount:
+        productMatches.length + linkMatches.length + campaignMatches.length,
+    })
 
     return NextResponse.json({
       results: [...productMatches, ...linkMatches, ...campaignMatches],
