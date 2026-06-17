@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import * as Icons from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -116,13 +117,18 @@ export function LeaderboardPage() {
 
       {/* Podium */}
       <div className="grid gap-4 md:grid-cols-3">
-        {podiumOrder.map((entry) => {
+        {podiumOrder.map((entry, index) => {
           const c = podiumColors[entry.rank]
           const PodiumIcon = c.icon
           const isFirst = entry.rank === 1
           return (
-            <Card
+            <motion.div
               key={entry.rank}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 20, delay: index * 0.1 }}
+            >
+            <Card
               className={cn(
                 'relative overflow-hidden border-border/60 transition-all hover:shadow-xl',
                 isFirst && 'md:-translate-y-4 md:scale-[1.03] ring-2 ring-amber-400/50',
@@ -176,6 +182,7 @@ export function LeaderboardPage() {
                 </div>
               </CardContent>
             </Card>
+            </motion.div>
           )
         })}
       </div>
@@ -236,8 +243,14 @@ export function LeaderboardPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rest.map((entry) => (
-              <TableRow key={entry.rank} className="group transition-colors hover:bg-shopee/5">
+            {rest.map((entry, index) => (
+              <motion.tr
+                key={entry.rank}
+                className="group border-b transition-colors hover:bg-shopee/5"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4, delay: index * 0.04, ease: [0.16, 1, 0.3, 1] }}
+              >
                 <TableCell className="font-bold text-muted-foreground">{entry.rank}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
@@ -275,7 +288,7 @@ export function LeaderboardPage() {
                     {entry.trend === 'flat' ? '0%' : `${entry.trend === 'down' ? '-' : '+'}${entry.trendPct}%`}
                   </span>
                 </TableCell>
-              </TableRow>
+              </motion.tr>
             ))}
           </TableBody>
         </Table>

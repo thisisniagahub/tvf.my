@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import * as Icons from 'lucide-react'
+import { motion } from 'framer-motion'
 import { useAppStore } from '@/store/app-store'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -96,9 +97,15 @@ export function ProductsPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {products.map((p: any) => (
-            <Card
+          {products.map((p: any, index: number) => (
+            <motion.div
               key={p.id}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] }}
+              whileHover={{ y: -4, transition: { duration: 0.2 } }}
+            >
+            <Card
               className="group cursor-pointer overflow-hidden border-border/60 transition-all hover:border-shopee/40 hover:shadow-lg"
               onClick={() => setSelected(p)}
             >
@@ -153,6 +160,7 @@ export function ProductsPage() {
                 </div>
               </CardContent>
             </Card>
+            </motion.div>
           ))}
         </div>
       )}

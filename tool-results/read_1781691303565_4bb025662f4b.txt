@@ -1,0 +1,629 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useMemo, useState } from 'react'
+     4→     4→import * as Icons from 'lucide-react'
+     5→     5→import { Card, CardContent } from '@/components/ui/card'
+     6→     6→import { Button } from '@/components/ui/button'
+     7→     7→import { Input } from '@/components/ui/input'
+     8→     8→import { Label } from '@/components/ui/label'
+     9→     9→import { Badge } from '@/components/ui/badge'
+    10→    10→import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    11→    11→import {
+    12→    12→  Select,
+    13→    13→  SelectContent,
+    14→    14→  SelectItem,
+    15→    15→  SelectTrigger,
+    16→    16→  SelectValue,
+    17→    17→} from '@/components/ui/select'
+    18→    18→import {
+    19→    19→  Dialog,
+    20→    20→  DialogContent,
+    21→    21→  DialogDescription,
+    22→    22→  DialogFooter,
+    23→    23→  DialogHeader,
+    24→    24→  DialogTitle,
+    25→    25→} from '@/components/ui/dialog'
+    26→    26→import { PageHeader, StatCard, PlatformBadge } from './_shared'
+    27→    27→import { demoCampaigns, formatRM, formatNumber } from '@/lib/demo-data'
+    28→    28→import type { Campaign } from '@/lib/types'
+    29→    29→import { toast } from 'sonner'
+    30→    30→import { cn } from '@/lib/utils'
+    31→    31→
+    32→    32→type FilterTab = 'all' | 'active' | 'paused' | 'ended' | 'draft'
+    33→    33→
+    34→    34→const statusConfig: Record<
+    35→    35→  Campaign['status'],
+    36→    36→  { badge: string; dot: string; label: string }
+    37→    37→> = {
+    38→    38→  active: {
+    39→    39→    badge: 'border-success/30 bg-success/5 text-success',
+    40→    40→    dot: 'bg-success',
+    41→    41→    label: 'Active',
+    42→    42→  },
+    43→    43→  paused: {
+    44→    44→    badge: 'border-warning/30 bg-warning/5 text-warning',
+    45→    45→    dot: 'bg-warning',
+    46→    46→    label: 'Paused',
+    47→    47→  },
+    48→    48→  ended: {
+    49→    49→    badge: 'border-border bg-muted/40 text-muted-foreground',
+    50→    50→    dot: 'bg-muted-foreground',
+    51→    51→    label: 'Ended',
+    52→    52→  },
+    53→    53→  draft: {
+    54→    54→    badge: 'border-border bg-background text-foreground',
+    55→    55→    dot: 'bg-foreground/40',
+    56→    56→    label: 'Draft',
+    57→    57→  },
+    58→    58→}
+    59→    59→
+    60→    60→export function CampaignsPage() {
+    61→    61→  const [filter, setFilter] = useState<FilterTab>('all')
+    62→    62→  const [campaigns, setCampaigns] = useState<Campaign[]>(demoCampaigns)
+    63→    63→  const [createOpen, setCreateOpen] = useState(false)
+    64→    64→  const [selected, setSelected] = useState<Campaign | null>(null)
+    65→    65→  const [form, setForm] = useState({
+    66→    66→    name: '',
+    67→    67→    platform: 'Shopee',
+    68→    68→    budget: '500',
+    69→    69→    startDate: '',
+    70→    70→    endDate: '',
+    71→    71→  })
+    72→    72→
+    73→    73→  const stats = useMemo(() => {
+    74→    74→    const active = campaigns.filter((c) => c.status === 'active').length
+    75→    75→    const totalBudget = campaigns.reduce((s, c) => s + c.budget, 0)
+    76→    76→    const totalSpent = campaigns.reduce((s, c) => s + c.spent, 0)
+    77→    77→    const validRoas = campaigns.filter((c) => c.roas > 0)
+    78→    78→    const avgRoas =
+    79→    79→      validRoas.length > 0
+    80→    80→        ? validRoas.reduce((s, c) => s + c.roas, 0) / validRoas.length
+    81→    81→        : 0
+    82→    82→    return { active, totalBudget, totalSpent, avgRoas }
+    83→    83→  }, [campaigns])
+    84→    84→
+    85→    85→  const filtered = useMemo(() => {
+    86→    86→    if (filter === 'all') return campaigns
+    87→    87→    return campaigns.filter((c) => c.status === filter)
+    88→    88→  }, [campaigns, filter])
+    89→    89→
+    90→    90→  function handleCreate() {
+    91→    91→    if (!form.name.trim()) {
+    92→    92→      toast.error('Give your campaign a name first lah')
+    93→    93→      return
+    94→    94→    }
+    95→    95→    if (!form.budget || parseFloat(form.budget) <= 0) {
+    96→    96→      toast.error('Set a valid budget')
+    97→    97→      return
+    98→    98→    }
+    99→    99→    const newCampaign: Campaign = {
+   100→   100→      id: `c${Date.now()}`,
+   101→   101→      name: form.name.trim(),
+   102→   102→      status: 'draft',
+   103→   103→      platform: form.platform,
+   104→   104→      budget: parseFloat(form.budget),
+   105→   105→      spent: 0,
+   106→   106→      clicks: 0,
+   107→   107→      orders: 0,
+   108→   108→      revenue: 0,
+   109→   109→      commission: 0,
+   110→   110→      roas: 0,
+   111→   111→      startDate: form.startDate || new Date().toISOString().slice(0, 10),
+   112→   112→      endDate: form.endDate,
+   113→   113→    }
+   114→   114→    setCampaigns((prev) => [newCampaign, ...prev])
+   115→   115→    setForm({ name: '', platform: 'Shopee', budget: '500', startDate: '', endDate: '' })
+   116→   116→    setCreateOpen(false)
+   117→   117→    toast.success('Campaign created!', {
+   118→   118→      description: `${newCampaign.name} saved as draft. Launch when ready lor.`,
+   119→   119→    })
+   120→   120→  }
+   121→   121→
+   122→   122→  function handleStatusChange(id: string, newStatus: Campaign['status']) {
+   123→   123→    setCampaigns((prev) =>
+   124→   124→      prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c))
+   125→   125→    )
+   126→   126→    const c = campaigns.find((x) => x.id === id)
+   127→   127→    toast.success(`Campaign ${newStatus}`, {
+   128→   128→      description: c ? `${c.name} is now ${newStatus}.` : '',
+   129→   129→    })
+   130→   130→  }
+   131→   131→
+   132→   132→  return (
+   133→   133→    <div className="space-y-6">
+   134→   134→      <PageHeader
+   135→   135→        title="Campaigns"
+   136→   136→        subtitle="Plan, launch and track your affiliate marketing campaigns across Shopee MY"
+   137→   137→        icon={Icons.Megaphone}
+   138→   138→        accent="hermes"
+   139→   139→      >
+   140→   140→        <Button variant="outline" size="sm" onClick={() => toast.info('Exporting campaign report...')}>
+   141→   141→          <Icons.Download className="mr-1 size-4" /> Export
+   142→   142→        </Button>
+   143→   143→        <Button
+   144→   144→          size="sm"
+   145→   145→          onClick={() => setCreateOpen(true)}
+   146→   146→          className="bg-hermes-gradient hover:opacity-90"
+   147→   147→        >
+   148→   148→          <Icons.Plus className="mr-1 size-4" /> New Campaign
+   149→   149→        </Button>
+   150→   150→      </PageHeader>
+   151→   151→
+   152→   152→      {/* Stat cards */}
+   153→   153→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   154→   154→        <StatCard
+   155→   155→          label="Active Campaigns"
+   156→   156→          value={stats.active}
+   157→   157→          icon={Icons.Rocket}
+   158→   158→          accent="success"
+   159→   159→          subtitle="Running right now"
+   160→   160→          delta={`${campaigns.filter((c) => c.status === 'draft').length} drafts ready`}
+   161→   161→          deltaType="neutral"
+   162→   162→        />
+   163→   163→        <StatCard
+   164→   164→          label="Total Budget"
+   165→   165→          value={formatRM(stats.totalBudget)}
+   166→   166→          icon={Icons.Wallet}
+   167→   167→          accent="shopee"
+   168→   168→          subtitle="Allocated across all"
+   169→   169→          delta={`${campaigns.length} total campaigns`}
+   170→   170→          deltaType="neutral"
+   171→   171→        />
+   172→   172→        <StatCard
+   173→   173→          label="Total Spent"
+   174→   174→          value={formatRM(stats.totalSpent)}
+   175→   175→          icon={Icons.TrendingDown}
+   176→   176→          accent="warning"
+   177→   177→          subtitle={`${((stats.totalSpent / Math.max(stats.totalBudget, 1)) * 100).toFixed(0)}% of budget`}
+   178→   178→          delta={formatRM(stats.totalBudget - stats.totalSpent) + ' remaining'}
+   179→   179→          deltaType="up"
+   180→   180→        />
+   181→   181→        <StatCard
+   182→   182→          label="Avg ROAS"
+   183→   183→          value={`${stats.avgRoas.toFixed(1)}x`}
+   184→   184→          icon={Icons.Target}
+   185→   185→          accent="hermes"
+   186→   186→          subtitle="Return on ad spend"
+   187→   187→          delta="Above 4x target"
+   188→   188→          deltaType="up"
+   189→   189→        />
+   190→   190→      </div>
+   191→   191→
+   192→   192→      {/* Filter tabs */}
+   193→   193→      <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterTab)}>
+   194→   194→        <TabsList className="flex-wrap">
+   195→   195→          <TabsTrigger value="all" className="text-xs">
+   196→   196→            All ({campaigns.length})
+   197→   197→          </TabsTrigger>
+   198→   198→          <TabsTrigger value="active" className="text-xs">
+   199→   199→            <Icons.CircleDot className="mr-1 size-3" /> Active ({campaigns.filter((c) => c.status === 'active').length})
+   200→   200→          </TabsTrigger>
+   201→   201→          <TabsTrigger value="paused" className="text-xs">
+   202→   202→            <Icons.Pause className="mr-1 size-3" /> Paused ({campaigns.filter((c) => c.status === 'paused').length})
+   203→   203→          </TabsTrigger>
+   204→   204→          <TabsTrigger value="ended" className="text-xs">
+   205→   205→            <Icons.CircleStop className="mr-1 size-3" /> Ended ({campaigns.filter((c) => c.status === 'ended').length})
+   206→   206→          </TabsTrigger>
+   207→   207→          <TabsTrigger value="draft" className="text-xs">
+   208→   208→            <Icons.FileEdit className="mr-1 size-3" /> Draft ({campaigns.filter((c) => c.status === 'draft').length})
+   209→   209→          </TabsTrigger>
+   210→   210→        </TabsList>
+   211→   211→      </Tabs>
+   212→   212→
+   213→   213→      {/* Campaign cards grid */}
+   214→   214→      {filtered.length === 0 ? (
+   215→   215→        <Card className="border-border/60 border-dashed">
+   216→   216→          <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+   217→   217→            <div className="flex size-14 items-center justify-center rounded-2xl bg-muted">
+   218→   218→              <Icons.Megaphone className="size-7 text-muted-foreground" />
+   219→   219→            </div>
+   220→   220→            <div>
+   221→   221→              <p className="text-sm font-medium">No campaigns in this filter</p>
+   222→   222→              <p className="text-xs text-muted-foreground">
+   223→   223→                Try another filter or create a new campaign lah.
+   224→   224→              </p>
+   225→   225→            </div>
+   226→   226→            <Button size="sm" onClick={() => setCreateOpen(true)} className="bg-hermes-gradient hover:opacity-90">
+   227→   227→              <Icons.Plus className="mr-1 size-4" /> New Campaign
+   228→   228→            </Button>
+   229→   229→          </CardContent>
+   230→   230→        </Card>
+   231→   231→      ) : (
+   232→   232→        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+   233→   233→          {filtered.map((c) => {
+   234→   234→            const cfg = statusConfig[c.status]
+   235→   235→            const budgetPct = c.budget > 0 ? Math.min(100, (c.spent / c.budget) * 100) : 0
+   236→   236→            const roasColor =
+   237→   237→              c.roas >= 6
+   238→   238→                ? 'text-success'
+   239→   239→                : c.roas >= 3
+   240→   240→                  ? 'text-shopee'
+   241→   241→                  : c.roas > 0
+   242→   242→                    ? 'text-warning'
+   243→   243→                    : 'text-muted-foreground'
+   244→   244→            return (
+   245→   245→              <Card
+   246→   246→                key={c.id}
+   247→   247→                className="group flex flex-col border-border/60 transition-all hover:border-hermes/40 hover:shadow-md"
+   248→   248→              >
+   249→   249→                {/* Header */}
+   250→   250→                <div className="border-b p-4">
+   251→   251→                  <div className="flex items-start justify-between gap-2">
+   252→   252→                    <div className="min-w-0 flex-1">
+   253→   253→                      <p className="truncate text-sm font-semibold">{c.name}</p>
+   254→   254→                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+   255→   255→                        <PlatformBadge platform={c.platform} />
+   256→   256→                        <Badge variant="outline" className={cn('gap-1', cfg.badge)}>
+   257→   257→                          <span className={cn('size-1.5 rounded-full', cfg.dot)} />
+   258→   258→                          {cfg.label}
+   259→   259→                        </Badge>
+   260→   260→                      </div>
+   261→   261→                    </div>
+   262→   262→                    <div className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', cfg.badge)}>
+   263→   263→                      <Icons.Megaphone className="size-4" />
+   264→   264→                    </div>
+   265→   265→                  </div>
+   266→   266→                </div>
+   267→   267→
+   268→   268→                {/* Budget progress */}
+   269→   269→                <div className="border-b p-4">
+   270→   270→                  <div className="flex items-center justify-between text-xs">
+   271→   271→                    <span className="flex items-center gap-1 text-muted-foreground">
+   272→   272→                      <Icons.Wallet className="size-3" /> Budget
+   273→   273→                    </span>
+   274→   274→                    <span className="font-semibold">
+   275→   275→                      {formatRM(c.spent)} <span className="text-muted-foreground">/ {formatRM(c.budget)}</span>
+   276→   276→                    </span>
+   277→   277→                  </div>
+   278→   278→                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+   279→   279→                    <div
+   280→   280→                      className={cn(
+   281→   281→                        'h-full rounded-full transition-all',
+   282→   282→                        budgetPct >= 100
+   283→   283→                          ? 'bg-destructive'
+   284→   284→                          : budgetPct >= 80
+   285→   285→                            ? 'bg-warning'
+   286→   286→                            : 'bg-shopee-gradient'
+   287→   287→                      )}
+   288→   288→                      style={{ width: `${budgetPct}%` }}
+   289→   289→                    />
+   290→   290→                  </div>
+   291→   291→                  <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+   292→   292→                    <span>{budgetPct.toFixed(0)}% used</span>
+   293→   293→                    <span>{formatRM(c.budget - c.spent)} left</span>
+   294→   294→                  </div>
+   295→   295→                </div>
+   296→   296→
+   297→   297→                {/* Stats grid */}
+   298→   298→                <div className="grid grid-cols-2 gap-px border-b bg-border/40">
+   299→   299→                  <div className="bg-card p-3">
+   300→   300→                    <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+   301→   301→                      <Icons.MousePointerClick className="size-3" /> Clicks
+   302→   302→                    </p>
+   303→   303→                    <p className="mt-0.5 text-sm font-bold">{formatNumber(c.clicks)}</p>
+   304→   304→                  </div>
+   305→   305→                  <div className="bg-card p-3">
+   306→   306→                    <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+   307→   307→                      <Icons.ShoppingCart className="size-3" /> Orders
+   308→   308→                    </p>
+   309→   309→                    <p className="mt-0.5 text-sm font-bold">{formatNumber(c.orders)}</p>
+   310→   310→                  </div>
+   311→   311→                  <div className="bg-card p-3">
+   312→   312→                    <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+   313→   313→                      <Icons.DollarSign className="size-3" /> Revenue
+   314→   314→                    </p>
+   315→   315→                    <p className="mt-0.5 text-sm font-bold text-shopee">{formatRM(c.revenue)}</p>
+   316→   316→                  </div>
+   317→   317→                  <div className="bg-card p-3">
+   318→   318→                    <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+   319→   319→                      <Icons.Coins className="size-3" /> Commission
+   320→   320→                    </p>
+   321→   321→                    <p className="mt-0.5 text-sm font-bold text-success">{formatRM(c.commission)}</p>
+   322→   322→                  </div>
+   323→   323→                </div>
+   324→   324→
+   325→   325→                {/* ROAS + dates */}
+   326→   326→                <div className="flex items-center justify-between border-b p-3">
+   327→   327→                  <div>
+   328→   328→                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">ROAS</p>
+   329→   329→                    <p className={cn('text-lg font-bold', roasColor)}>
+   330→   330→                      {c.roas > 0 ? `${c.roas.toFixed(2)}x` : '—'}
+   331→   331→                    </p>
+   332→   332→                  </div>
+   333→   333→                  <div className="text-right">
+   334→   334→                    <p className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
+   335→   335→                      <Icons.Calendar className="size-3" /> Schedule
+   336→   336→                    </p>
+   337→   337→                    <p className="text-xs font-medium">
+   338→   338→                      {c.startDate}
+   339→   339→                      {c.endDate ? ` → ${c.endDate}` : ' → ongoing'}
+   340→   340→                    </p>
+   341→   341→                  </div>
+   342→   342→                </div>
+   343→   343→
+   344→   344→                {/* Actions */}
+   345→   345→                <div className="mt-auto flex items-center gap-2 p-4">
+   346→   346→                  <Button
+   347→   347→                    size="sm"
+   348→   348→                    variant="outline"
+   349→   349→                    className="flex-1"
+   350→   350→                    onClick={() => setSelected(c)}
+   351→   351→                  >
+   352→   352→                    <Icons.Eye className="mr-1 size-3.5" /> View Details
+   353→   353→                  </Button>
+   354→   354→                  {c.status === 'active' ? (
+   355→   355→                    <Button
+   356→   356→                      size="sm"
+   357→   357→                      variant="outline"
+   358→   358→                      onClick={() => handleStatusChange(c.id, 'paused')}
+   359→   359→                      title="Pause"
+   360→   360→                    >
+   361→   361→                      <Icons.Pause className="size-3.5 text-warning" />
+   362→   362→                    </Button>
+   363→   363→                  ) : c.status === 'paused' || c.status === 'draft' ? (
+   364→   364→                    <Button
+   365→   365→                      size="sm"
+   366→   366→                      variant="outline"
+   367→   367→                      onClick={() => handleStatusChange(c.id, 'active')}
+   368→   368→                      title="Launch"
+   369→   369→                    >
+   370→   370→                      <Icons.Play className="size-3.5 text-success" />
+   371→   371→                    </Button>
+   372→   372→                  ) : (
+   373→   373→                    <Button
+   374→   374→                      size="sm"
+   375→   375→                      variant="outline"
+   376→   376→                      disabled
+   377→   377→                      title="Ended"
+   378→   378→                    >
+   379→   379→                      <Icons.CircleStop className="size-3.5 text-muted-foreground" />
+   380→   380→                    </Button>
+   381→   381→                  )}
+   382→   382→                </div>
+   383→   383→              </Card>
+   384→   384→            )
+   385→   385→          })}
+   386→   386→        </div>
+   387→   387→      )}
+   388→   388→
+   389→   389→      {/* Create campaign dialog */}
+   390→   390→      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+   391→   391→        <DialogContent className="max-w-lg">
+   392→   392→          <DialogHeader>
+   393→   393→            <DialogTitle className="flex items-center gap-2 text-xl">
+   394→   394→              <Icons.Megaphone className="size-5 text-hermes" /> New Campaign
+   395→   395→            </DialogTitle>
+   396→   396→            <DialogDescription>
+   397→   397→              Set up a new affiliate campaign. You can launch it now or save as draft.
+   398→   398→            </DialogDescription>
+   399→   399→          </DialogHeader>
+   400→   400→
+   401→   401→          <div className="space-y-4 py-2">
+   402→   402→            <div className="space-y-2">
+   403→   403→              <Label htmlFor="c-name" className="text-sm font-medium">
+   404→   404→                Campaign Name <span className="text-destructive">*</span>
+   405→   405→              </Label>
+   406→   406→              <Input
+   407→   407→                id="c-name"
+   408→   408→                placeholder="e.g. 11.11 Mega Sale Beauty"
+   409→   409→                value={form.name}
+   410→   410→                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+   411→   411→              />
+   412→   412→            </div>
+   413→   413→
+   414→   414→            <div className="grid grid-cols-2 gap-3">
+   415→   415→              <div className="space-y-2">
+   416→   416→                <Label htmlFor="c-platform" className="text-sm font-medium">
+   417→   417→                  Platform
+   418→   418→                </Label>
+   419→   419→                <Select
+   420→   420→                  value={form.platform}
+   421→   421→                  onValueChange={(v) => setForm((f) => ({ ...f, platform: v }))}
+   422→   422→                >
+   423→   423→                  <SelectTrigger id="c-platform" className="w-full">
+   424→   424→                    <SelectValue />
+   425→   425→                  </SelectTrigger>
+   426→   426→                  <SelectContent>
+   427→   427→                    <SelectItem value="Shopee">Shopee</SelectItem>
+   428→   428→                    <SelectItem value="TikTok">TikTok Shop</SelectItem>
+   429→   429→                    <SelectItem value="Lazada">Lazada</SelectItem>
+   430→   430→                  </SelectContent>
+   431→   431→                </Select>
+   432→   432→              </div>
+   433→   433→              <div className="space-y-2">
+   434→   434→                <Label htmlFor="c-budget" className="text-sm font-medium">
+   435→   435→                  Budget (RM) <span className="text-destructive">*</span>
+   436→   436→                </Label>
+   437→   437→                <Input
+   438→   438→                  id="c-budget"
+   439→   439→                  type="number"
+   440→   440→                  min={0}
+   441→   441→                  value={form.budget}
+   442→   442→                  onChange={(e) => setForm((f) => ({ ...f, budget: e.target.value }))}
+   443→   443→                />
+   444→   444→              </div>
+   445→   445→            </div>
+   446→   446→
+   447→   447→            <div className="grid grid-cols-2 gap-3">
+   448→   448→              <div className="space-y-2">
+   449→   449→                <Label htmlFor="c-start" className="text-sm font-medium">
+   450→   450→                  Start Date
+   451→   451→                </Label>
+   452→   452→                <Input
+   453→   453→                  id="c-start"
+   454→   454→                  type="date"
+   455→   455→                  value={form.startDate}
+   456→   456→                  onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
+   457→   457→                />
+   458→   458→              </div>
+   459→   459→              <div className="space-y-2">
+   460→   460→                <Label htmlFor="c-end" className="text-sm font-medium">
+   461→   461→                  End Date <span className="text-muted-foreground">(optional)</span>
+   462→   462→                </Label>
+   463→   463→                <Input
+   464→   464→                  id="c-end"
+   465→   465→                  type="date"
+   466→   466→                  value={form.endDate}
+   467→   467→                  onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+   468→   468→                />
+   469→   469→              </div>
+   470→   470→            </div>
+   471→   471→
+   472→   472→            {/* Budget presets */}
+   473→   473→            <div className="space-y-2">
+   474→   474→              <Label className="text-sm font-medium">Quick Budget Presets</Label>
+   475→   475→              <div className="flex flex-wrap gap-2">
+   476→   476→                {[100, 300, 500, 1000, 2000].map((b) => (
+   477→   477→                  <Button
+   478→   478→                    key={b}
+   479→   479→                    type="button"
+   480→   480→                    size="sm"
+   481→   481→                    variant={form.budget === String(b) ? 'default' : 'outline'}
+   482→   482→                    onClick={() => setForm((f) => ({ ...f, budget: String(b) }))}
+   483→   483→                    className={form.budget === String(b) ? 'bg-hermes-gradient hover:opacity-90' : ''}
+   484→   484→                  >
+   485→   485→                    {formatRM(b)}
+   486→   486→                  </Button>
+   487→   487→                ))}
+   488→   488→              </div>
+   489→   489→            </div>
+   490→   490→
+   491→   491→            {/* Summary preview */}
+   492→   492→            <div className="rounded-lg border border-dashed border-hermes/30 bg-hermes/[0.03] p-3">
+   493→   493→              <div className="flex items-center gap-2">
+   494→   494→                <Icons.Info className="size-4 text-hermes" />
+   495→   495→                <p className="text-xs font-semibold text-hermes">Campaign Summary</p>
+   496→   496→              </div>
+   497→   497→              <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+   498→   498→                <li>• Name: <span className="font-medium text-foreground">{form.name || '—'}</span></li>
+   499→   499→                <li>• Platform: <span className="font-medium text-foreground">{form.platform}</span></li>
+   500→   500→                <li>• Budget: <span className="font-medium text-foreground">{form.budget ? formatRM(parseFloat(form.budget)) : '—'}</span></li>
+   501→   501→                <li>• Status: <span className="font-medium text-foreground">Draft (launch anytime)</span></li>
+   502→   502→              </ul>
+   503→   503→            </div>
+   504→   504→          </div>
+   505→   505→
+   506→   506→          <DialogFooter>
+   507→   507→            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+   508→   508→              Cancel
+   509→   509→            </Button>
+   510→   510→            <Button onClick={handleCreate} className="bg-hermes-gradient hover:opacity-90">
+   511→   511→              <Icons.Plus className="mr-1 size-4" /> Create Campaign
+   512→   512→            </Button>
+   513→   513→          </DialogFooter>
+   514→   514→        </DialogContent>
+   515→   515→      </Dialog>
+   516→   516→
+   517→   517→      {/* Campaign details dialog */}
+   518→   518→      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+   519→   519→        <DialogContent className="max-w-2xl">
+   520→   520→          {selected && (
+   521→   521→            <>
+   522→   522→              <DialogHeader>
+   523→   523→                <DialogTitle className="flex items-center gap-2 text-xl">
+   524→   524→                  <Icons.Megaphone className="size-5 text-hermes" /> {selected.name}
+   525→   525→                </DialogTitle>
+   526→   526→                <DialogDescription>
+   527→   527→                  Campaign performance and details
+   528→   528→                </DialogDescription>
+   529→   529→              </DialogHeader>
+   530→   530→
+   531→   531→              <div className="space-y-4">
+   532→   532→                {/* Top badges */}
+   533→   533→                <div className="flex flex-wrap items-center gap-2">
+   534→   534→                  <PlatformBadge platform={selected.platform} />
+   535→   535→                  <Badge variant="outline" className={cn('gap-1', statusConfig[selected.status].badge)}>
+   536→   536→                    <span className={cn('size-1.5 rounded-full', statusConfig[selected.status].dot)} />
+   537→   537→                    {statusConfig[selected.status].label}
+   538→   538→                  </Badge>
+   539→   539→                  <Badge variant="outline" className="gap-1">
+   540→   540→                    <Icons.Calendar className="size-3" />
+   541→   541→                    {selected.startDate} → {selected.endDate ?? 'ongoing'}
+   542→   542→                  </Badge>
+   543→   543→                </div>
+   544→   544→
+   545→   545→                {/* Stat grid */}
+   546→   546→                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   547→   547→                  <div className="rounded-lg border p-3 text-center">
+   548→   548→                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Clicks</p>
+   549→   549→                    <p className="mt-1 text-lg font-bold">{formatNumber(selected.clicks)}</p>
+   550→   550→                  </div>
+   551→   551→                  <div className="rounded-lg border p-3 text-center">
+   552→   552→                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Orders</p>
+   553→   553→                    <p className="mt-1 text-lg font-bold">{formatNumber(selected.orders)}</p>
+   554→   554→                  </div>
+   555→   555→                  <div className="rounded-lg border p-3 text-center">
+   556→   556→                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Revenue</p>
+   557→   557→                    <p className="mt-1 text-lg font-bold text-shopee">{formatRM(selected.revenue)}</p>
+   558→   558→                  </div>
+   559→   559→                  <div className="rounded-lg border p-3 text-center">
+   560→   560→                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Commission</p>
+   561→   561→                    <p className="mt-1 text-lg font-bold text-success">{formatRM(selected.commission)}</p>
+   562→   562→                  </div>
+   563→   563→                </div>
+   564→   564→
+   565→   565→                {/* Budget + ROAS */}
+   566→   566→                <div className="grid grid-cols-2 gap-3">
+   567→   567→                  <div className="rounded-lg border p-4">
+   568→   568→                    <div className="flex items-center justify-between text-xs">
+   569→   569→                      <span className="text-muted-foreground">Budget Usage</span>
+   570→   570→                      <span className="font-semibold">
+   571→   571→                        {formatRM(selected.spent)} / {formatRM(selected.budget)}
+   572→   572→                      </span>
+   573→   573→                    </div>
+   574→   574→                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+   575→   575→                      <div
+   576→   576→                        className="h-full rounded-full bg-shopee-gradient"
+   577→   577→                        style={{
+   578→   578→                          width: `${Math.min(100, (selected.spent / Math.max(selected.budget, 1)) * 100)}%`,
+   579→   579→                        }}
+   580→   580→                      />
+   581→   581→                    </div>
+   582→   582→                  </div>
+   583→   583→                  <div className="rounded-lg border p-4">
+   584→   584→                    <p className="text-xs text-muted-foreground">Return on Ad Spend</p>
+   585→   585→                    <p className={cn(
+   586→   586→                      'mt-1 text-2xl font-bold',
+   587→   587→                      selected.roas >= 6
+   588→   588→                        ? 'text-success'
+   589→   589→                        : selected.roas >= 3
+   590→   590→                          ? 'text-shopee'
+   591→   591→                          : selected.roas > 0
+   592→   592→                            ? 'text-warning'
+   593→   593→                            : 'text-muted-foreground'
+   594→   594→                    )}>
+   595→   595→                      {selected.roas > 0 ? `${selected.roas.toFixed(2)}x` : '—'}
+   596→   596→                    </p>
+   597→   597→                  </div>
+   598→   598→                </div>
+   599→   599→
+   600→   600→                {/* Action buttons */}
+   601→   601→                <div className="flex flex-wrap gap-2 pt-2">
+   602→   602→                  {selected.status === 'active' && (
+   603→   603→                    <Button variant="outline" size="sm" onClick={() => { handleStatusChange(selected.id, 'paused'); setSelected(null) }}>
+   604→   604→                      <Icons.Pause className="mr-1 size-4 text-warning" /> Pause
+   605→   605→                    </Button>
+   606→   606→                  )}
+   607→   607→                  {(selected.status === 'paused' || selected.status === 'draft') && (
+   608→   608→                    <Button variant="outline" size="sm" onClick={() => { handleStatusChange(selected.id, 'active'); setSelected(null) }}>
+   609→   609→                      <Icons.Play className="mr-1 size-4 text-success" /> Launch
+   610→   610→                    </Button>
+   611→   611→                  )}
+   612→   612→                  {selected.status !== 'ended' && (
+   613→   613→                    <Button variant="outline" size="sm" onClick={() => { handleStatusChange(selected.id, 'ended'); setSelected(null) }}>
+   614→   614→                      <Icons.CircleStop className="mr-1 size-4" /> End Campaign
+   615→   615→                    </Button>
+   616→   616→                  )}
+   617→   617→                  <Button size="sm" className="ml-auto bg-hermes-gradient hover:opacity-90" onClick={() => { toast.success('Opening analytics for ' + selected.name); setSelected(null) }}>
+   618→   618→                    <Icons.BarChart3 className="mr-1 size-4" /> Full Analytics
+   619→   619→                  </Button>
+   620→   620→                </div>
+   621→   621→              </div>
+   622→   622→            </>
+   623→   623→          )}
+   624→   624→        </DialogContent>
+   625→   625→      </Dialog>
+   626→   626→    </div>
+   627→   627→  )
+   628→   628→}
+   629→   629→

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import * as Icons from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -230,7 +231,7 @@ export function CampaignsPage() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((c) => {
+          {filtered.map((c, index) => {
             const cfg = statusConfig[c.status]
             const budgetPct = c.budget > 0 ? Math.min(100, (c.spent / c.budget) * 100) : 0
             const roasColor =
@@ -242,8 +243,14 @@ export function CampaignsPage() {
                     ? 'text-warning'
                     : 'text-muted-foreground'
             return (
-              <Card
+              <motion.div
                 key={c.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              >
+              <Card
                 className="group flex flex-col border-border/60 transition-all hover:border-hermes/40 hover:shadow-md"
               >
                 {/* Header */}
@@ -381,6 +388,7 @@ export function CampaignsPage() {
                   )}
                 </div>
               </Card>
+              </motion.div>
             )
           })}
         </div>

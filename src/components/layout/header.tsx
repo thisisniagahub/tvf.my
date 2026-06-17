@@ -28,9 +28,9 @@ import { demoNotifications } from '@/lib/demo-data'
 import { useLiveNotifications } from '@/hooks/use-live-notifications'
 
 export function Header() {
-  const { activePage, user, logout, setActivePage, setCommandPaletteOpen } = useAppStore()
+  const { activePage, user, logout, setActivePage, setCommandPaletteOpen, liveNotificationsEnabled } = useAppStore()
   const { theme, setTheme } = useTheme()
-  const { connected, simulated, events: liveEvents, unreadCount: liveUnread, markAllRead } = useLiveNotifications(true)
+  const { connected, simulated, events: liveEvents, unreadCount: liveUnread, markAllRead } = useLiveNotifications(liveNotificationsEnabled)
   const [search, setSearch] = useState('')
   const [showHint, setShowHint] = useState(true)
 

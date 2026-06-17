@@ -608,3 +608,97 @@ Stage Summary:
   4. Add a settings page toggle for the live notification simulation on/off.
   5. Polish the mobile experience — test responsive layouts on small screens.
   6. Add a "recently viewed pages" section to the command palette for quick re-navigation.
+
+---
+Task ID: 5-a
+Agent: full-stack-developer (stagger animations)
+Task: Add Framer Motion stagger animations to Products, Campaigns, and Leaderboard pages
+
+Work Log:
+- Read worklog.md and the 3 target page components (products-page.tsx, campaigns-page.tsx, leaderboard-page.tsx) plus the shared TableRow/table component to understand structure and default classes.
+- Confirmed framer-motion ^12.23.2 is installed; verified `BezierDefinition = readonly [number, number, number, number]` so the inline `ease: [0.16, 1, 0.3, 1]` array literal is accepted via contextual typing (no `as const` needed).
+- Checked eslint.config.mjs: no indentation rule, no prettier config, and most TS/React rules are off — so minimal wrapper edits (without full re-indentation) are lint-safe.
+- products-page.tsx:
+  - Added `import { motion } from 'framer-motion'` after the lucide-react import.
+  - Wrapped each product `<Card>` in a `motion.div` with `initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} transition={{duration:0.4, delay: index*0.05, ease:[0.16,1,0.3,1]}} whileHover={{y:-4, transition:{duration:0.2}}}`.
+  - Added `index: number` to the `products.map` callback; moved `key={p.id}` from the Card to the motion.div; kept the Card's original className and `onClick={() => setSelected(p)}` intact.
+- campaigns-page.tsx:
+  - Added the motion import.
+  - Added `index` to `filtered.map`; wrapped each campaign `<Card>` in a `motion.div` with the same entrance pattern (delay: index*0.08) and `whileHover={{ y:-4, transition:{ duration:0.2 } }}`. The Card's existing `hover:shadow-md` already provides the hover shadow.
+  - Moved `key={c.id}` to the motion.div; preserved the Card className and all inner content/handlers.
+- leaderboard-page.tsx:
+  - Added the motion import.
+  - Podium: wrapped each of the top-3 `<Card>` elements in a `motion.div` with a spring entrance `initial={{scale:0.8, opacity:0}} animate={{scale:1, opacity:1}} transition={{type:'spring', stiffness:200, damping:20, delay: index*0.1}}`; moved `key={entry.rank}` to the wrapper; preserved the Card's conditional `cn(...)` className (translate/scale for 1st place) so the podium layout is unchanged.
+  - Full leaderboard table: replaced `<TableRow>` with `<motion.tr>` for the `rest.map` rows, added `index`, and gave each row a slide-in-from-left stagger `initial={{opacity:0, x:-10}} animate={{opacity:1, x:0}} transition={{duration:0.4, delay: index*0.04, ease:[0.16,1,0.3,1]}}`. Appended `border-b` to the row className to preserve the bottom border that the shadcn `TableRow` component added by default (motion.tr does not inherit those defaults). Kept `group transition-colors hover:bg-shopee/5`. `TableRow` is still used for the header row, so its import remains in use.
+- Ran `bun run lint` — clean (no errors/warnings). Checked dev.log: pages compile and serve 200 with no runtime errors.
+
+Stage Summary:
+- All 3 pages now have Framer Motion stagger entrances using the easeOutExpo curve `[0.16, 1, 0.3, 1]`.
+- Products grid: per-card fade+rise stagger (0.05s steps) with hover lift.
+- Campaigns grid: per-card fade+rise stagger (0.08s steps) with hover lift + existing hover shadow.
+- Leaderboard: top-3 podium spring scale-in (0.8 -> 1) and full-table rows slide in from the left (0.04s steps).
+- No export names, data, click handlers, or existing classNames were removed; `'use client'` directives preserved; no test files created; lint passes.
+
+---
+
+Task ID: 5 (Main orchestrator round — confetti, recent pages, stagger animations, settings toggle)
+Agent: main (Z.ai Code orchestrator)
+Task: QA the local app, then add confetti celebration on live sales, recently-viewed pages in command palette, stagger animations on Products/Campaigns/Leaderboard, and a settings toggle for live notifications.
+
+Work Log:
+- Reviewed worklog.md: app stable with animated counters, keyboard nav, live dashboard, command palette, AI features.
+- QA with agent-browser: all 36 pages render, 0 console errors, 0 lint errors, 0 TS errors in src/. App is stable.
+
+- FEATURE: Confetti celebration animation on live sale notifications
+  * Installed canvas-confetti + @types/canvas-confetti
+  * Created /home/z/my-project/src/lib/confetti.ts with celebrateSale() and celebrateAchievement() functions
+  * celebrateSale(): multi-burst confetti with shopee orange + hermes purple + success green + warning yellow + white colors. Three bursts (bottom-left, bottom-right, center stars) + side cannons finale over 0.8s
+  * celebrateAchievement(): smaller single-burst for milestones
+  * Wired into use-live-notifications.tsx: sale events trigger celebrateSale(), XTRA events trigger celebrateAchievement(). Dynamic import to avoid loading canvas-confetti until needed.
+
+- FEATURE: Recently-viewed pages in command palette
+  * Added `recentPages: PageId[]` to Zustand store (persisted, max 8 entries)
+  * Updated `setActivePage` to push page to front of recentPages (deduped)
+  * Updated command-palette.tsx: when no search query, shows "Recently Visited" section (with History icon) at the top showing up to 5 recently visited pages, followed by "Quick Actions" section
+  * Each recent item shows "Recently visited" as its description
+  * Recent pages persist across page reloads via localStorage
+
+- FEATURE: Settings toggle for live notifications
+  * Added `liveNotificationsEnabled: boolean` to Zustand store (persisted, default true)
+  * Added `setLiveNotificationsEnabled` action
+  * Updated header.tsx: passes `liveNotificationsEnabled` to useLiveNotifications hook (enables/disables the WebSocket + fallback simulation)
+  * Added "Live Notifications" SectionCard to settings-page.tsx Notifications tab:
+    - Pulsing green dot icon
+    - Switch toggle with toast feedback on change
+    - Active state shows green confirmation banner
+    - Description mentions confetti celebrations
+
+- FEATURE: Stagger animations on Products, Campaigns, Leaderboard (via subagent Task 5-a)
+  * Products grid: each product card fades in + rises with 0.05s stagger, hover lift y:-4
+  * Campaigns cards: each campaign card fades in + rises with 0.08s stagger, hover lift
+  * Leaderboard: top 3 podium cards spring in (scale 0.8→1, stiffness 200), table rows slide in from left (x:-10→0) with 0.04s stagger
+  * All use easeOutExpo [0.16, 1, 0.3, 1] for smooth entrances
+
+- QA verification:
+  * bun run lint: 0 errors, 0 warnings ✓
+  * tsc --noEmit: 0 errors in src/ ✓
+  * All 36 pages render: 0 failures ✓
+  * Command palette shows "Recently Visited" section after navigating to pages ✓
+  * Settings → Notifications tab shows "Live Notifications" toggle ✓
+  * Toggle switch works (checked/unchecked) with toast feedback ✓
+  * Products page renders with stagger animations, 0 console errors ✓
+  * Live sale notifications trigger confetti (canvas-confetti loaded via dynamic import) ✓
+  * Dashboard live activity feed shows "just now • live" events ✓
+  * 0 console errors, 0 page errors ✓
+
+Stage Summary:
+- The local TheViralFindsMY app now has delightful confetti celebrations when live sale notifications arrive, a recently-viewed pages section in the command palette for quick re-navigation, stagger animations on Products/Campaigns/Leaderboard for visual polish, and a settings toggle to enable/disable live notifications.
+- The app remains stable: 0 lint errors, 0 TypeScript errors in src/, all 36 pages render, 0 console errors.
+- The Zustand store now persists: auth, user, activePage, sidebarCollapsed, pinnedPages, recentPages, liveNotificationsEnabled, onboarding/shortcuts state.
+- Recommended next-step focus for the next recurring review:
+  1. Wire up the Prisma database (schema still has default User/Post models — add Product, Link, Campaign, Notification models and persist real data).
+  2. Add a "celebration" toast variant with a special styled background for sale notifications (more prominent than regular toasts).
+  3. Add keyboard arrow navigation (↑↓) in the command palette to move between results without mouse.
+  4. Add a dark mode preview animation in the settings appearance tab.
+  5. Polish the mobile experience — test responsive layouts on small screens, add a mobile command palette trigger.
+  6. Add a "clear recent" button in the command palette to reset recently-viewed pages.

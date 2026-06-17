@@ -69,7 +69,7 @@ const sessions = [
 ]
 
 export function SettingsPage() {
-  const { user } = useAppStore()
+  const { user, liveNotificationsEnabled, setLiveNotificationsEnabled } = useAppStore()
   const { theme, setTheme } = useTheme()
   const [activeTab, setActiveTab] = useState('profile')
   const [selectedNiches, setSelectedNiches] = useState<string[]>(user?.niches ?? ['Electronics', 'Beauty', 'Fashion'])
@@ -241,6 +241,39 @@ export function SettingsPage() {
 
           {/* Notifications */}
           <TabsContent value="notifications" className="mt-0 space-y-6">
+            <SectionCard title="Live Notifications" description="Real-time activity feed & celebration animations" icon={Icons.Radio}>
+              <div className="flex items-center justify-between gap-4 py-2">
+                <div className="flex items-center gap-3">
+                  <div className="relative flex size-9 items-center justify-center rounded-lg bg-success/15 text-success">
+                    <span className="relative flex size-2">
+                      <span className="pulse-ring absolute inline-flex size-2 rounded-full text-success/60" />
+                      <span className="relative inline-flex size-2 rounded-full bg-success" />
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Enable live notifications</p>
+                    <p className="text-xs text-muted-foreground">Show real-time sales, trends & XTRA alerts with confetti celebrations</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={liveNotificationsEnabled}
+                  onCheckedChange={(checked) => {
+                    setLiveNotificationsEnabled(checked)
+                    toast.success(checked ? 'Live notifications enabled' : 'Live notifications disabled', {
+                      description: checked ? 'You will see real-time activity and confetti!' : 'Real-time feed paused.',
+                    })
+                  }}
+                  aria-label="Toggle live notifications"
+                />
+              </div>
+              {liveNotificationsEnabled && (
+                <div className="mt-2 rounded-lg bg-success/5 px-3 py-2 text-xs text-success">
+                  <Icons.CheckCircle2 className="mr-1 inline size-3.5" />
+                  Active — live events appear in the header bell & dashboard activity feed
+                </div>
+              )}
+            </SectionCard>
+
             <SectionCard title="Notification Channels" description="Choose how you want to be notified" icon={Icons.Bell}>
               <div className="space-y-1">
                 {[

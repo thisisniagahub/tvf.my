@@ -35,7 +35,7 @@ const quickActions = [
 ]
 
 export function CommandPalette() {
-  const { commandPaletteOpen, setCommandPaletteOpen, setActivePage } = useAppStore()
+  const { commandPaletteOpen, setCommandPaletteOpen, setActivePage, recentPages } = useAppStore()
   const { theme, setTheme } = useTheme()
   const [query, setQuery] = useState('')
 
@@ -88,16 +88,23 @@ export function CommandPalette() {
     setQuery('')
   }
 
-  const allItems = [
-    ...navItems.slice(0, 8).map((item) => ({
+  const recentItems = recentPages
+    .map((pageId) => navItems.find((i) => i.id === pageId))
+    .filter((i): i is NonNullable<typeof i> => i !== undefined)
+    .slice(0, 5)
+    .map((item) => ({
       type: 'page' as const,
       id: item.id,
       label: item.label,
-      desc: categoryLabels[item.category as Exclude<PageCategory, 'pinned'>] ?? item.category,
+      desc: 'Recently visited',
       icon: (Icons as unknown as Record<string, Icons.LucideIcon>)[item.icon] ?? Icons.Circle,
       badge: item.badge,
       page: item.id,
-    })),
+      recent: true,
+    }))
+
+  const allItems = [
+    ...recentItems,
     ...quickActions.map((a) => ({ type: 'action' as const, ...a })),
   ]
 
@@ -131,10 +138,24 @@ export function CommandPalette() {
         </div>
         {/* Results */}
         <div className="max-h-[400px] overflow-y-auto scrollbar-thin">
-          {!results && (
+          {!results && recentItems.length > 0 && (
+            <div className="px-4 pt-3 pb-1">
+              <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <Icons.History className="size-3" /> Recently Visited
+              </p>
+            </div>
+          )}
+          {!results && recentItems.length === 0 && (
             <div className="px-4 pt-3 pb-1">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Quick Actions
+              </p>
+            </div>
+          )}
+          {!results && recentItems.length > 0 && quickActions.length > 0 && (
+            <div className="px-4 pt-3 pb-1">
+              <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <Icons.Zap className="size-3 text-shopee" /> Quick Actions
               </p>
             </div>
           )}

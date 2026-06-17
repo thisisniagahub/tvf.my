@@ -12,7 +12,9 @@ interface AppState {
   activePage: PageId
   sidebarCollapsed: boolean
   pinnedPages: PageId[]
+  recentPages: PageId[]
   commandPaletteOpen: boolean
+  liveNotificationsEnabled: boolean
 
   login: (user?: Partial<User>) => void
   logout: () => void
@@ -23,6 +25,7 @@ interface AppState {
   completeOnboarding: () => void
   completeShortcuts: () => void
   setCommandPaletteOpen: (open: boolean) => void
+  setLiveNotificationsEnabled: (enabled: boolean) => void
 }
 
 const defaultUser: User = {
@@ -44,7 +47,9 @@ export const useAppStore = create<AppState>()(
       activePage: 'dashboard',
       sidebarCollapsed: false,
       pinnedPages: ['dashboard', 'ai-content', 'earnings'],
+      recentPages: [],
       commandPaletteOpen: false,
+      liveNotificationsEnabled: true,
 
       login: (user) =>
         set((state) => ({
@@ -58,7 +63,14 @@ export const useAppStore = create<AppState>()(
           activePage: 'dashboard',
           hasSeenOnboarding: false,
         }),
-      setActivePage: (page) => set({ activePage: page }),
+      setActivePage: (page) =>
+        set((state) => ({
+          activePage: page,
+          recentPages: [
+            page,
+            ...state.recentPages.filter((p) => p !== page),
+          ].slice(0, 8),
+        })),
       toggleSidebar: () =>
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
@@ -71,6 +83,7 @@ export const useAppStore = create<AppState>()(
       completeOnboarding: () => set({ hasSeenOnboarding: true }),
       completeShortcuts: () => set({ hasSeenShortcuts: true }),
       setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
+      setLiveNotificationsEnabled: (enabled) => set({ liveNotificationsEnabled: enabled }),
     }),
     {
       name: 'tvfm-store',
@@ -82,6 +95,8 @@ export const useAppStore = create<AppState>()(
         activePage: state.activePage,
         sidebarCollapsed: state.sidebarCollapsed,
         pinnedPages: state.pinnedPages,
+        recentPages: state.recentPages,
+        liveNotificationsEnabled: state.liveNotificationsEnabled,
       }),
     }
   )

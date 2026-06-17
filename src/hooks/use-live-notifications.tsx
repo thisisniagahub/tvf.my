@@ -73,6 +73,15 @@ export function useLiveNotifications(enabled: boolean = true) {
       icon,
       duration: 5000,
     })
+
+    // Celebrate sales and achievements with confetti
+    if (typeof window !== 'undefined') {
+      if (event.type === 'sale') {
+        import('@/lib/confetti').then(({ celebrateSale }) => celebrateSale())
+      } else if (event.type === 'xtra') {
+        import('@/lib/confetti').then(({ celebrateAchievement }) => celebrateAchievement())
+      }
+    }
   }, [])
 
   const addEvent = useCallback((event: LiveEvent) => {
