@@ -25,7 +25,7 @@ const gKeyMap: Record<string, { page: PageId; label: string }> = {
 const directKeys: Record<string, () => void> = {}
 
 export function useKeyboardShortcuts() {
-  const { setActivePage, toggleSidebar, setCommandPaletteOpen, isAuthenticated } = useAppStore()
+  const { setActivePage, toggleSidebar, setCommandPaletteOpen, setShortcutsOpen, toggleFocusMode, isAuthenticated } = useAppStore()
   const [gPressed, setGPressed] = useState(false)
   const [gTimer, setGTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
 
@@ -87,8 +87,12 @@ export function useKeyboardShortcuts() {
         toast.success('Sidebar toggled', { duration: 1200 })
         e.preventDefault()
       }
+      if (key === 'f') {
+        toggleFocusMode()
+        e.preventDefault()
+      }
       if (key === '?' || (e.shiftKey && e.key === '/')) {
-        setCommandPaletteOpen(true)
+        setShortcutsOpen(true)
         e.preventDefault()
       }
     }
@@ -98,7 +102,7 @@ export function useKeyboardShortcuts() {
       window.removeEventListener('keydown', handler)
       if (gTimer) clearTimeout(gTimer)
     }
-  }, [isAuthenticated, gPressed, gTimer, resetG, setActivePage, toggleSidebar, setCommandPaletteOpen])
+  }, [isAuthenticated, gPressed, gTimer, resetG, setActivePage, toggleSidebar, setCommandPaletteOpen, setShortcutsOpen, toggleFocusMode])
 
   return { gPressed }
 }

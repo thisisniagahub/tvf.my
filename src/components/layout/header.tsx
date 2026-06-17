@@ -28,9 +28,9 @@ import { demoNotifications } from '@/lib/demo-data'
 import { useLiveNotifications } from '@/hooks/use-live-notifications'
 
 export function Header() {
-  const { activePage, user, logout, setActivePage, setCommandPaletteOpen, setChangelogOpen, hasSeenChangelog, liveNotificationsEnabled } = useAppStore()
+  const { activePage, user, logout, setActivePage, setCommandPaletteOpen, setChangelogOpen, hasSeenChangelog, liveNotificationsEnabled, notificationSoundEnabled, focusMode, toggleFocusMode, setShortcutsOpen } = useAppStore()
   const { theme, setTheme } = useTheme()
-  const { connected, simulated, events: liveEvents, unreadCount: liveUnread, markAllRead } = useLiveNotifications(liveNotificationsEnabled)
+  const { connected, simulated, events: liveEvents, unreadCount: liveUnread, markAllRead } = useLiveNotifications(liveNotificationsEnabled, notificationSoundEnabled)
   const [search, setSearch] = useState('')
   const [showHint, setShowHint] = useState(true)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -263,6 +263,23 @@ export function Header() {
         {theme === 'dark' ? <Icons.Sun className="size-5" /> : <Icons.Moon className="size-5" />}
       </Button>
 
+      {/* Focus Mode toggle */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn('hidden md:inline-flex', focusMode && 'bg-hermes/10 text-hermes')}
+        title="Focus Mode (F) — hide sidebar & notifications"
+        onClick={() => {
+          toggleFocusMode()
+          toast.success(focusMode ? 'Focus mode off' : 'Focus mode on', {
+            description: focusMode ? 'Sidebar restored' : 'Sidebar hidden — distraction-free work',
+            duration: 2000,
+          })
+        }}
+      >
+        <Icons.Focus className="size-5" />
+      </Button>
+
       {/* What's New / Changelog */}
       <Button
         variant="ghost"
@@ -280,13 +297,13 @@ export function Header() {
         )}
       </Button>
 
-      {/* Keyboard shortcuts */}
+      {/* Keyboard shortcuts cheat sheet */}
       <Button
         variant="ghost"
         size="icon"
         className="hidden md:inline-flex"
-        title="Keyboard shortcuts (Shift+/)"
-        onClick={() => setCommandPaletteOpen(true)}
+        title="Keyboard shortcuts (?)"
+        onClick={() => setShortcutsOpen(true)}
       >
         <Icons.Keyboard className="size-5" />
       </Button>

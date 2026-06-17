@@ -1164,3 +1164,75 @@ Stage Summary:
   4. Add a "keyboard shortcuts cheat sheet" accessible from the header (more comprehensive than the current shortcuts modal).
   5. Add a notification sound option in settings (play a sound when a live sale notification arrives).
   6. Add a "focus mode" that hides the sidebar and notifications for distraction-free work.
+
+---
+
+Task ID: 11 (Main orchestrator round — focus mode, sound, cheat sheet)
+Agent: main (Z.ai Code orchestrator)
+Task: QA the local app, then add Focus Mode, notification sound option, and comprehensive keyboard shortcuts cheat sheet.
+
+Work Log:
+- Reviewed worklog.md: app stable with data management, notification badge, skeleton loading, About tab, frequent pages.
+- QA with agent-browser: all 36 pages render, 0 console errors, 0 lint errors, 0 TS errors in src/. App is stable.
+
+- FEATURE: Focus Mode (hide sidebar & mobile nav for distraction-free work)
+  * Added `focusMode` boolean + `toggleFocusMode` + `setFocusMode` to Zustand store (persisted)
+  * Updated app-shell.tsx: sidebar, mobile nav, and mobile FAB are hidden when focusMode is true
+  * Added Focus Mode toggle button to header (Focus icon) — turns hermes purple when active
+  * "F" keyboard shortcut to toggle focus mode (added to use-keyboard-shortcuts.ts)
+  * Toast feedback on toggle: "Focus mode on — Sidebar hidden" / "Focus mode off — Sidebar restored"
+
+- FEATURE: Notification sound option (Web Audio API chime)
+  * Created /home/z/my-project/src/lib/sounds.ts using Web Audio API (no asset files needed)
+  * `playSaleChime()`: cheerful C5→E5→G5 major chord arpeggio for sale notifications
+  * `playNotificationBlip()`: softer A5 single blip for XTRA/trend alerts
+  * Added `notificationSoundEnabled` boolean + `setNotificationSoundEnabled` to Zustand store (persisted)
+  * Updated use-live-notifications.tsx: accepts `soundEnabled` param, plays chime on sales when enabled
+  * Uses soundEnabledRef to avoid stale closures in the showToast callback
+  * Added "Notification sounds" toggle to Settings → Notifications tab (only shows when live notifications enabled):
+    - Volume2 icon (hermes purple)
+    - Switch toggle with toast feedback
+    - "Test" button that plays the sale chime immediately
+    - When enabled, also plays a test chime so user hears it right away
+  * Dynamic import of sounds module to avoid loading Web Audio API until needed
+
+- FEATURE: Comprehensive keyboard shortcuts cheat sheet modal
+  * Created /home/z/my-project/src/components/modals/shortcuts-modal.tsx
+  * 4 categorized groups with icons + colors:
+    - Navigation (shopee, 12 shortcuts): G+D/P/L/A/E/C/M/T/H/S/N/O
+    - Quick Actions (hermes, 5 shortcuts): Cmd+K, /, B, F, ?
+    - Command Palette (success, 4 shortcuts): ↑↓, Enter, Tab, Esc
+    - Global (warning, 2 shortcuts): Cmd+K, Esc
+  * Hermes gradient header banner with Keyboard icon
+  * Stagger entrance animation per group (0.08s delay)
+  * Each shortcut shows label, description, and kbd key badges
+  * Footer shows total shortcut count (23 shortcuts)
+  * Added `shortcutsOpen` + `setShortcutsOpen` to Zustand store
+  * "?" keyboard shortcut opens the cheat sheet (replaces old command palette binding)
+  * Header keyboard button now opens the cheat sheet (not command palette)
+  * Wired into page.tsx alongside other modals
+
+- Updated Reset All Settings to include new fields: focusMode, notificationSoundEnabled, shortcutsOpen
+- Updated Export Settings to include: notificationSoundEnabled, focusMode
+
+- QA verification:
+  * bun run lint: 0 errors, 0 warnings ✓
+  * tsc --noEmit: 0 errors in src/ ✓
+  * All 36 pages render: 0 failures ✓
+  * Focus Mode (F key): hides sidebar, toast feedback ✓
+  * Shortcuts cheat sheet (? key): opens with 4 groups, 23 shortcuts ✓
+  * Notification sound toggle: visible in Settings → Notifications ✓
+  * Test sound button: plays chime + shows toast ✓
+  * 0 console errors on fresh reload ✓
+
+Stage Summary:
+- The local TheViralFindsMY app now has Focus Mode (distraction-free work via F key), notification sounds (Web Audio API chime on sales, togglable in settings), and a comprehensive keyboard shortcuts cheat sheet (23 shortcuts across 4 categories, opens with ? key).
+- The app remains stable: 0 lint errors, 0 TypeScript errors in src/, all 36 pages render, 0 console errors.
+- The app now has a complete keyboard navigation system: G-then-X page shortcuts, B/F/? direct shortcuts, Cmd+K command palette, ↑↓ Enter Tab navigation, and a full cheat sheet.
+- Recommended next-step focus for the next recurring review:
+  1. Wire up the Prisma database (schema still has default User/Post models — add Product, Link, Campaign, Notification models and persist real data).
+  2. Make content search results clickable to open detail modals (e.g., clicking a product result opens the product detail dialog).
+  3. Add a "focus mode" exit hint banner that shows when focus mode is active.
+  4. Add a volume slider for the notification sound in settings.
+  5. Add a "do not disturb" mode that silences all notifications during set hours.
+  6. Add a custom shortcut configuration feature (let users remap keys).

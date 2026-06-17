@@ -81,7 +81,7 @@ const sessions = [
 ]
 
 export function SettingsPage() {
-  const { user, liveNotificationsEnabled, setLiveNotificationsEnabled, setChangelogOpen, resetAllSettings, importSettings } = useAppStore()
+  const { user, liveNotificationsEnabled, setLiveNotificationsEnabled, notificationSoundEnabled, setNotificationSoundEnabled, setChangelogOpen, resetAllSettings, importSettings } = useAppStore()
   const { theme, setTheme } = useTheme()
   const [activeTab, setActiveTab] = useState('profile')
   const [selectedNiches, setSelectedNiches] = useState<string[]>(user?.niches ?? ['Electronics', 'Beauty', 'Fashion'])
@@ -283,6 +283,46 @@ export function SettingsPage() {
                 <div className="mt-2 rounded-lg bg-success/5 px-3 py-2 text-xs text-success">
                   <Icons.CheckCircle2 className="mr-1 inline size-3.5" />
                   Active — live events appear in the header bell & dashboard activity feed
+                </div>
+              )}
+              {liveNotificationsEnabled && (
+                <div className="mt-3 flex items-center justify-between gap-4 border-t pt-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-9 items-center justify-center rounded-lg bg-hermes/10 text-hermes">
+                      <Icons.Volume2 className="size-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Notification sounds</p>
+                      <p className="text-xs text-muted-foreground">Play a chime when a live sale notification arrives</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      onClick={() => {
+                        import('@/lib/sounds').then(({ playSaleChime }) => playSaleChime())
+                        toast.info('Test sound played')
+                      }}
+                      title="Test sound"
+                    >
+                      <Icons.Play className="mr-1 size-3" /> Test
+                    </Button>
+                    <Switch
+                      checked={notificationSoundEnabled}
+                      onCheckedChange={(checked) => {
+                        setNotificationSoundEnabled(checked)
+                        toast.success(checked ? 'Sound enabled' : 'Sound disabled', {
+                          description: checked ? 'You will hear a chime on sales!' : 'Silent mode.',
+                        })
+                        if (checked) {
+                          import('@/lib/sounds').then(({ playSaleChime }) => playSaleChime())
+                        }
+                      }}
+                      aria-label="Toggle notification sounds"
+                    />
+                  </div>
                 </div>
               )}
             </SectionCard>
@@ -926,6 +966,8 @@ export function SettingsPage() {
                           recentPages: state.recentPages,
                           pageVisitCounts: state.pageVisitCounts,
                           liveNotificationsEnabled: state.liveNotificationsEnabled,
+                          notificationSoundEnabled: state.notificationSoundEnabled,
+                          focusMode: state.focusMode,
                           theme,
                         },
                       }

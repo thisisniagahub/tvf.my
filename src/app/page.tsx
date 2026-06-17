@@ -7,6 +7,7 @@ import { AppShell } from '@/components/layout/app-shell'
 import { LandingPage } from '@/components/auth/landing-page'
 import { OnboardingFlow } from '@/components/auth/onboarding'
 import { KeyboardShortcutsModal } from '@/components/modals/keyboard-shortcuts'
+import { ShortcutsModal } from '@/components/modals/shortcuts-modal'
 import { CommandPalette } from '@/components/modals/command-palette'
 import { ChangelogModal } from '@/components/modals/changelog-modal'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -131,6 +132,7 @@ export default function Home() {
         </Suspense>
       </AppShell>
       {!hasSeenShortcuts && <KeyboardShortcutsModal />}
+      <ShortcutsModal />
       <CommandPalette />
       <ChangelogModal />
     </>

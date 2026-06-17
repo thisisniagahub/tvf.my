@@ -10,19 +10,22 @@ import * as Icons from 'lucide-react'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed)
+  const focusMode = useAppStore((s) => s.focusMode)
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen)
   const { gPressed } = useKeyboardShortcuts()
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Desktop sidebar */}
-      <aside
-        className={`hidden md:flex flex-col border-r bg-sidebar transition-all duration-300 ${
-          sidebarCollapsed ? 'w-16' : 'w-64'
-        }`}
-      >
-        <Sidebar />
-      </aside>
+      {/* Desktop sidebar (hidden in focus mode) */}
+      {!focusMode && (
+        <aside
+          className={`hidden md:flex flex-col border-r bg-sidebar transition-all duration-300 ${
+            sidebarCollapsed ? 'w-16' : 'w-64'
+          }`}
+        >
+          <Sidebar />
+        </aside>
+      )}
 
       {/* Main content */}
       <div className="flex flex-1 flex-col min-w-0">
@@ -34,10 +37,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* Mobile bottom nav */}
-      <MobileNav />
+      {/* Mobile bottom nav (hidden in focus mode) */}
+      {!focusMode && <MobileNav />}
 
-      {/* Mobile command palette FAB */}
+      {/* Mobile command palette FAB (hidden in focus mode) */}
+      {!focusMode && (
       <motion.button
         initial={{ scale: 0, rotate: -90 }}
         animate={{ scale: 1, rotate: 0 }}
@@ -54,6 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="relative inline-flex size-3 rounded-full bg-white" />
         </span>
       </motion.button>
+      )}
 
       {/* G-key indicator overlay */}
       <AnimatePresence>

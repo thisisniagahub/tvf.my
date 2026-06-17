@@ -48,7 +48,7 @@ function simEvent(): LiveEvent {
   }
 }
 
-export function useLiveNotifications(enabled: boolean = true) {
+export function useLiveNotifications(enabled: boolean = true, soundEnabled: boolean = false) {
   const [connected, setConnected] = useState(false)
   const [simulated, setSimulated] = useState(false)
   const [events, setEvents] = useState<LiveEvent[]>([])
@@ -56,6 +56,11 @@ export function useLiveNotifications(enabled: boolean = true) {
   const socketRef = useRef<Socket | null>(null)
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const connectedRef = useRef(false)
+  const soundEnabledRef = useRef(soundEnabled)
+
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled
+  }, [soundEnabled])
 
   const showToast = useCallback((event: LiveEvent) => {
     // Celebration toast for sales — custom styled with gradient background
@@ -112,12 +117,18 @@ export function useLiveNotifications(enabled: boolean = true) {
       })
     }
 
-    // Celebrate sales and achievements with confetti
+    // Celebrate sales and achievements with confetti + sound
     if (typeof window !== 'undefined') {
       if (event.type === 'sale') {
         import('@/lib/confetti').then(({ celebrateSale }) => celebrateSale())
+        if (soundEnabledRef.current) {
+          import('@/lib/sounds').then(({ playSaleChime }) => playSaleChime())
+        }
       } else if (event.type === 'xtra') {
         import('@/lib/confetti').then(({ celebrateAchievement }) => celebrateAchievement())
+        if (soundEnabledRef.current) {
+          import('@/lib/sounds').then(({ playNotificationBlip }) => playNotificationBlip())
+        }
       }
     }
   }, [])
