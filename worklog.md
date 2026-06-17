@@ -1556,3 +1556,42 @@ Stage Summary:
 - Key score improvements: Type Safety 3→7, Code Quality 4→7, Testing 0→4, Security 5→7, Documentation 6→8
 - The app now has: structured logging, Zod input validation, env validation, rate limiting, 121 unit tests, and comprehensive documentation.
 - Remaining phases (not yet implemented): Phase 3.1 (Server Components), 3.3 (bundle optimization), 3.4 (image optimization), 3.5 (OpenAPI), Phase 4 (HERMES v2.0 — 46 tasks), Phase 5.1-5.5 (a11y, DB migration, Sentry, CI/CD, analytics).
+
+---
+
+Task ID: IMPL (Implementation Plan Compilation)
+Agent: main (Z.ai Code orchestrator)
+Task: Review 3 .md files (Code Review, Hermes Integration, Master Plan), compile into unified implementation.md with suggestions.
+
+Work Log:
+- Reviewed 3 documents in detail:
+  1. Code Review: TheViralFindsMY (score 6.0/10, 10 criteria, critical/major/minor issues)
+  2. Hermes Agent Integration Plan (6 phases, 132h, score 7.5→9.0)
+  3. TVF-MASTER-PLAN.md (142 tasks, 5 phases, 260h, 13 weeks)
+- Identified discrepancies: Code Review references deployed version (98K lines, 60+ routes) vs local rebuild (smaller). Filtered applicable tasks only.
+- Compiled into /home/z/my-project/implementation.md with:
+  - Score tracker (updated with current progress)
+  - Phase 0-5 with task-level status (✅ DONE / 🟡 PARTIAL / 🔴 NOT STARTED)
+  - 8 suggestions for unsuitable parts (with rationale)
+  - Weekly timeline (13 weeks revised)
+  - Master checklist status (108 tasks, 34 done, 35% complete)
+  - Tech stack summary
+  - Key metrics
+  - Implementation priority matrix (P0-P4)
+- Key suggestions added:
+  1. Server Components: HYBRID approach (don't break SPA routing)
+  2. External AI: Use z-ai-web-dev-sdk (already integrated) not FAL.ai/OpenAI
+  3. PostgreSQL: DEFER (SQLite sufficient for now)
+  4. Browser scraping: AVOID (legal/ToS risk, use official API)
+  5. Messaging: Telegram FIRST (Malaysian market), defer WhatsApp/Discord/Slack
+  6. Computer-Use Agent: DEFER (most complex, 80h+)
+  7. Sentry: DEFER (logger + error boundaries sufficient)
+  8. Page refactoring: Add rule to CONTRIBUTING.md (< 500 lines)
+
+Stage Summary:
+- Created comprehensive implementation.md (108 tasks, 13-week timeline)
+- Preserved ALL existing features — plan is add-on & upgrade only
+- Marked 34 tasks as DONE (from previous sessions)
+- 8 suggestions for adaptation/deferral with clear rationale
+- Priority matrix P0-P4 for clear execution order
+- Ready for implementation: start with P1 items (component tests, bundle optimization)
