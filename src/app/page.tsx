@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, lazy, Suspense } from 'react'
+import { lazy, Suspense } from 'react'
+import { motion } from 'framer-motion'
 import { useAppStore } from '@/store/app-store'
 import { AppShell } from '@/components/layout/app-shell'
 import { LandingPage } from '@/components/auth/landing-page'
 import { OnboardingFlow } from '@/components/auth/onboarding'
 import { KeyboardShortcutsModal } from '@/components/modals/keyboard-shortcuts'
+import { CommandPalette } from '@/components/modals/command-palette'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { PageId } from '@/lib/types'
 
@@ -103,12 +105,6 @@ function PageLoader() {
 export default function Home() {
   const { isAuthenticated, hasSeenOnboarding, hasSeenShortcuts, activePage, completeOnboarding } = useAppStore()
 
-  // Apply theme class to html
-  const theme = useAppStore((s) => s.theme)
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
-  }, [theme])
-
   if (!isAuthenticated) {
     return <LandingPage />
   }
@@ -123,10 +119,18 @@ export default function Home() {
     <>
       <AppShell>
         <Suspense fallback={<PageLoader />}>
-          <ActivePage />
+          <motion.div
+            key={activePage}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            <ActivePage />
+          </motion.div>
         </Suspense>
       </AppShell>
       {!hasSeenShortcuts && <KeyboardShortcutsModal />}
+      <CommandPalette />
     </>
   )
 }

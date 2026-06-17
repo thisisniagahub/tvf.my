@@ -12,7 +12,7 @@ interface AppState {
   activePage: PageId
   sidebarCollapsed: boolean
   pinnedPages: PageId[]
-  theme: 'light' | 'dark'
+  commandPaletteOpen: boolean
 
   login: (user?: Partial<User>) => void
   logout: () => void
@@ -22,8 +22,7 @@ interface AppState {
   togglePin: (page: PageId) => void
   completeOnboarding: () => void
   completeShortcuts: () => void
-  toggleTheme: () => void
-  setTheme: (theme: 'light' | 'dark') => void
+  setCommandPaletteOpen: (open: boolean) => void
 }
 
 const defaultUser: User = {
@@ -45,7 +44,7 @@ export const useAppStore = create<AppState>()(
       activePage: 'dashboard',
       sidebarCollapsed: false,
       pinnedPages: ['dashboard', 'ai-content', 'earnings'],
-      theme: 'light',
+      commandPaletteOpen: false,
 
       login: (user) =>
         set((state) => ({
@@ -71,11 +70,7 @@ export const useAppStore = create<AppState>()(
         })),
       completeOnboarding: () => set({ hasSeenOnboarding: true }),
       completeShortcuts: () => set({ hasSeenShortcuts: true }),
-      toggleTheme: () =>
-        set((state) => ({
-          theme: state.theme === 'light' ? 'dark' : 'light',
-        })),
-      setTheme: (theme) => set({ theme }),
+      setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
     }),
     {
       name: 'tvfm-store',
@@ -87,7 +82,6 @@ export const useAppStore = create<AppState>()(
         activePage: state.activePage,
         sidebarCollapsed: state.sidebarCollapsed,
         pinnedPages: state.pinnedPages,
-        theme: state.theme,
       }),
     }
   )

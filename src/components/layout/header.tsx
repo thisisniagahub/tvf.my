@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import * as Icons from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { useAppStore } from '@/store/app-store'
 import { navItems } from '@/lib/demo-data'
 import { Button } from '@/components/ui/button'
@@ -24,11 +25,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { demoNotifications } from '@/lib/demo-data'
+import { useLiveNotifications } from '@/hooks/use-live-notifications'
 
 export function Header() {
-  const { activePage, user, logout, toggleTheme, theme, setActivePage } = useAppStore()
+  const { activePage, user, logout, setActivePage, setCommandPaletteOpen } = useAppStore()
+  const { theme, setTheme } = useTheme()
+  const { connected, simulated, events: liveEvents, unreadCount: liveUnread, markAllRead } = useLiveNotifications(true)
   const [search, setSearch] = useState('')
-  const [connected, setConnected] = useState(true)
   const [showHint, setShowHint] = useState(true)
 
   const currentItem = navItems.find((i) => i.id === activePage)
@@ -38,13 +41,7 @@ export function Header() {
     return () => clearInterval(t)
   }, [])
 
-  // Simulated real-time connection indicator
-  useEffect(() => {
-    const t = setInterval(() => setConnected((c) => c), 5000)
-    return () => clearInterval(t)
-  }, [])
-
-  const unreadCount = demoNotifications.filter((n) => !n.read).length
+  const unreadCount = demoNotifications.filter((n) => !n.read).length + liveUnread
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -90,15 +87,15 @@ export function Header() {
 
       {/* Real-time status */}
       <div className="ml-auto md:ml-0 flex items-center gap-1">
-        <div className="relative flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1">
+        <div className={cn('relative flex items-center gap-1.5 rounded-full px-2.5 py-1', connected ? (simulated ? 'bg-hermes/10' : 'bg-success/10') : 'bg-muted')}>
           <span className="relative flex size-2">
             {connected && (
-              <span className="pulse-ring absolute inline-flex size-2 rounded-full text-success/60" />
+              <span className={cn('pulse-ring absolute inline-flex size-2 rounded-full', simulated ? 'text-hermes/60' : 'text-success/60')} />
             )}
-            <span className="relative inline-flex size-2 rounded-full bg-success" />
+            <span className={cn('relative inline-flex size-2 rounded-full', connected ? (simulated ? 'bg-hermes' : 'bg-success') : 'bg-muted-foreground')} />
           </span>
-          <span className="hidden lg:inline text-[11px] font-medium text-success">
-            Real-time connected
+          <span className={cn('hidden lg:inline text-[11px] font-medium', connected ? (simulated ? 'text-hermes' : 'text-success') : 'text-muted-foreground')}>
+            {connected ? (simulated ? 'Live (simulated)' : 'Real-time connected') : 'Connecting...'}
           </span>
         </div>
       </div>
@@ -118,10 +115,48 @@ export function Header() {
         <PopoverContent align="end" className="w-80 p-0">
           <div className="flex items-center justify-between border-b p-3">
             <p className="text-sm font-semibold">Notifications</p>
-            <Badge variant="secondary" className="text-[10px]">{unreadCount} new</Badge>
+            <div className="flex items-center gap-1.5">
+              {liveUnread > 0 && (
+                <Badge className="text-[10px] bg-shopee/15 text-shopee">
+                  <span className="relative mr-0.5 flex size-1.5">
+                    <span className="pulse-ring absolute inline-flex size-1.5 rounded-full text-shopee/60" />
+                    <span className="relative inline-flex size-1.5 rounded-full bg-shopee" />
+                  </span>
+                  {liveUnread} live
+                </Badge>
+              )}
+              <Badge variant="secondary" className="text-[10px]">{unreadCount} new</Badge>
+            </div>
           </div>
           <ScrollArea className="max-h-80">
             <div className="divide-y">
+              {/* Live events first */}
+              {liveEvents.slice(0, 5).map((n) => (
+                <div
+                  key={n.id}
+                  className="flex gap-3 bg-shopee/[0.04] p-3 hover:bg-accent/50 cursor-pointer animate-fade-in-up"
+                >
+                  <div className={cn(
+                    'flex size-8 shrink-0 items-center justify-center rounded-full',
+                    n.type === 'sale' && 'bg-success/15 text-success',
+                    n.type === 'trend' && 'bg-hermes/15 text-hermes',
+                    n.type === 'xtra' && 'bg-shopee/15 text-shopee',
+                    n.type === 'info' && 'bg-muted text-muted-foreground',
+                  )}>
+                    {n.type === 'sale' && <Icons.DollarSign className="size-4" />}
+                    {n.type === 'trend' && <Icons.TrendingUp className="size-4" />}
+                    {n.type === 'xtra' && <Icons.Star className="size-4" />}
+                    {n.type === 'info' && <Icons.Info className="size-4" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{n.title}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{n.message}</p>
+                    <p className="mt-0.5 text-[10px] text-shopee font-medium">just now • live</p>
+                  </div>
+                  <span className="mt-1 size-2 shrink-0 rounded-full bg-shopee animate-pulse" />
+                </div>
+              ))}
+              {/* Then demo notifications */}
               {demoNotifications.map((n) => (
                 <div
                   key={n.id}
@@ -168,12 +203,23 @@ export function Header() {
       </Popover>
 
       {/* Theme toggle */}
-      <Button variant="ghost" size="icon" onClick={toggleTheme} title="Toggle dark mode">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        title="Toggle dark mode"
+      >
         {theme === 'dark' ? <Icons.Sun className="size-5" /> : <Icons.Moon className="size-5" />}
       </Button>
 
       {/* Keyboard shortcuts */}
-      <Button variant="ghost" size="icon" className="hidden md:inline-flex" title="Keyboard shortcuts (Shift+/)">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="hidden md:inline-flex"
+        title="Keyboard shortcuts (Shift+/)"
+        onClick={() => setCommandPaletteOpen(true)}
+      >
         <Icons.Keyboard className="size-5" />
       </Button>
 

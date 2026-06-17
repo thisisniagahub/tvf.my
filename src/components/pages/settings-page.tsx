@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import * as Icons from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -68,7 +69,8 @@ const sessions = [
 ]
 
 export function SettingsPage() {
-  const { user, theme, setTheme } = useAppStore()
+  const { user } = useAppStore()
+  const { theme, setTheme } = useTheme()
   const [activeTab, setActiveTab] = useState('profile')
   const [selectedNiches, setSelectedNiches] = useState<string[]>(user?.niches ?? ['Electronics', 'Beauty', 'Fashion'])
   const [bio, setBio] = useState('Malaysian affiliate marketer focused on trending Shopee products. Beauty, fashion, and tech enthusiast.')
