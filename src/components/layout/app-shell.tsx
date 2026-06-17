@@ -10,6 +10,7 @@ import * as Icons from 'lucide-react'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed)
+  const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen)
   const { gPressed } = useKeyboardShortcuts()
 
   return (
@@ -27,7 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 flex-col min-w-0">
         <Header />
         <main className="flex-1 overflow-y-auto scrollbar-thin">
-          <div className="mx-auto max-w-[1600px] w-full p-4 md:p-6 animate-fade-in-up">
+          <div className="mx-auto max-w-[1600px] w-full p-4 md:p-6 animate-fade-in-up pb-24 md:pb-6">
             {children}
           </div>
         </main>
@@ -35,6 +36,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <MobileNav />
+
+      {/* Mobile command palette FAB */}
+      <motion.button
+        initial={{ scale: 0, rotate: -90 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.5 }}
+        whileHover={{ scale: 1.08 }}
+        whileTap={{ scale: 0.92 }}
+        onClick={() => setCommandPaletteOpen(true)}
+        className="fixed right-4 bottom-20 z-30 flex size-12 items-center justify-center rounded-full bg-shopee-gradient text-white shadow-lg shadow-shopee/30 md:hidden"
+        aria-label="Open command palette"
+      >
+        <Icons.Search className="size-5" />
+        <span className="absolute -right-0.5 -top-0.5 flex size-3">
+          <span className="absolute inline-flex size-3 animate-ping rounded-full bg-white/60" />
+          <span className="relative inline-flex size-3 rounded-full bg-white" />
+        </span>
+      </motion.button>
 
       {/* G-key indicator overlay */}
       <AnimatePresence>
@@ -69,6 +88,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   )
 }
-
-// silence unused import in some builds
-void Icons

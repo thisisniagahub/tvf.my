@@ -26,6 +26,7 @@ interface AppState {
   completeShortcuts: () => void
   setCommandPaletteOpen: (open: boolean) => void
   setLiveNotificationsEnabled: (enabled: boolean) => void
+  clearRecentPages: () => void
 }
 
 const defaultUser: User = {
@@ -84,6 +85,7 @@ export const useAppStore = create<AppState>()(
       completeShortcuts: () => set({ hasSeenShortcuts: true }),
       setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
       setLiveNotificationsEnabled: (enabled) => set({ liveNotificationsEnabled: enabled }),
+      clearRecentPages: () => set({ recentPages: [] }),
     }),
     {
       name: 'tvfm-store',

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import * as Icons from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Card, CardContent } from '@/components/ui/card'
@@ -567,6 +568,82 @@ export function SettingsPage() {
 
           {/* Appearance */}
           <TabsContent value="appearance" className="mt-0 space-y-6">
+            {/* Animated theme preview */}
+            <Card className={cn(
+              'relative overflow-hidden border-2 transition-colors',
+              theme === 'dark' ? 'border-foreground/20' : 'border-shopee/20'
+            )}>
+              <div className={cn(
+                'relative p-5 transition-colors duration-500',
+                theme === 'dark' ? 'bg-[oklch(0.16_0.008_250)]' : 'bg-[oklch(0.99_0.002_240)]'
+              )}>
+                {/* Mini dashboard mockup */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-7 items-center justify-center rounded-lg bg-shopee-gradient text-white">
+                      <Icons.ShoppingBag className="size-4" />
+                    </div>
+                    <span className={cn('text-sm font-bold', theme === 'dark' ? 'text-white' : 'text-foreground')}>
+                      TheViral<span className="text-shopee">FindsMY</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-full bg-success/10 px-2 py-0.5">
+                    <span className="relative flex size-1.5">
+                      <span className="pulse-ring absolute inline-flex size-1.5 rounded-full text-success/60" />
+                      <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+                    </span>
+                    <span className="text-[9px] font-medium text-success">Live</span>
+                  </div>
+                </div>
+                {/* Mini stat cards */}
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'Earnings', value: 'RM 5,487', color: 'text-shopee' },
+                    { label: 'Clicks', value: '2,847', color: 'text-hermes' },
+                    { label: 'CVR', value: '26.4%', color: 'text-success' },
+                  ].map((stat, i) => (
+                    <motion.div
+                      key={stat.label}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.1, duration: 0.4 }}
+                      className={cn(
+                        'rounded-lg p-2',
+                        theme === 'dark' ? 'bg-[oklch(0.21_0.01_250)]' : 'bg-white'
+                      )}
+                    >
+                      <p className={cn('text-[8px] uppercase tracking-wider', theme === 'dark' ? 'text-white/60' : 'text-muted-foreground')}>
+                        {stat.label}
+                      </p>
+                      <p className={cn('text-xs font-bold', stat.color)}>{stat.value}</p>
+                    </motion.div>
+                  ))}
+                </div>
+                {/* Mini chart bar */}
+                <div className="mt-2 flex items-end gap-1">
+                  {[40, 65, 50, 80, 60, 90, 70].map((h, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ height: 0 }}
+                      animate={{ height: `${h}%` }}
+                      transition={{ delay: 0.3 + i * 0.05, duration: 0.5, ease: 'easeOut' }}
+                      className={cn(
+                        'flex-1 rounded-t',
+                        i % 2 === 0 ? 'bg-shopee/60' : 'bg-hermes/60'
+                      )}
+                      style={{ minHeight: 8 }}
+                    />
+                  ))}
+                </div>
+                {/* Theme toggle hint */}
+                <div className="mt-3 flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
+                  <Icons.Sun className={cn('size-3 transition-opacity', theme === 'light' ? 'opacity-100' : 'opacity-30')} />
+                  <span>Click a theme below to preview live</span>
+                  <Icons.Moon className={cn('size-3 transition-opacity', theme === 'dark' ? 'opacity-100' : 'opacity-30')} />
+                </div>
+              </div>
+            </Card>
+
             <SectionCard title="Theme" description="Choose how TheViralFindsMY looks" icon={Icons.Palette}>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {([

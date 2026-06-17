@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import * as Icons from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { navItems } from '@/lib/demo-data'
@@ -12,6 +12,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
@@ -35,11 +36,19 @@ const quickActions = [
 ]
 
 export function CommandPalette() {
-  const { commandPaletteOpen, setCommandPaletteOpen, setActivePage, recentPages } = useAppStore()
+  const { commandPaletteOpen, setCommandPaletteOpen, setActivePage, recentPages, clearRecentPages } = useAppStore()
   const { theme, setTheme } = useTheme()
-  const [query, setQuery] = useState('')
+  const [query, setQueryState] = useState('')
+  const [activeIndex, setActiveIndex] = useState(0)
+  const listRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  // Keyboard shortcut: Cmd+K / Ctrl+K to open, Escape handled by Dialog
+  const setQuery = useCallback((q: string) => {
+    setQueryState(q)
+    setActiveIndex(0)
+  }, [])
+
+  // Keyboard shortcut: Cmd+K / Ctrl+K to open
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -49,6 +58,22 @@ export function CommandPalette() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
+  }, [setCommandPaletteOpen])
+
+  // Focus input when palette opens
+  useEffect(() => {
+    if (commandPaletteOpen) {
+      const t = setTimeout(() => inputRef.current?.focus(), 50)
+      return () => clearTimeout(t)
+    }
+  }, [commandPaletteOpen])
+
+  const handleOpenChange = useCallback((open: boolean) => {
+    setCommandPaletteOpen(open)
+    if (!open) {
+      setQueryState('')
+      setActiveIndex(0)
+    }
   }, [setCommandPaletteOpen])
 
   const results = useMemo(() => {
@@ -73,7 +98,7 @@ export function CommandPalette() {
     return [...pageMatches, ...actionMatches]
   }, [query])
 
-  const handleSelect = (item: any) => {
+  const handleSelect = useCallback((item: any) => {
     if (item.type === 'page') {
       setActivePage(item.page)
       toast.success(`Navigated to ${item.label}`)
@@ -86,9 +111,9 @@ export function CommandPalette() {
     }
     setCommandPaletteOpen(false)
     setQuery('')
-  }
+  }, [setActivePage, setCommandPaletteOpen, setTheme, theme])
 
-  const recentItems = recentPages
+  const recentItems = useMemo(() => recentPages
     .map((pageId) => navItems.find((i) => i.id === pageId))
     .filter((i): i is NonNullable<typeof i> => i !== undefined)
     .slice(0, 5)
@@ -101,18 +126,55 @@ export function CommandPalette() {
       badge: item.badge,
       page: item.id,
       recent: true,
-    }))
+    })), [recentPages])
 
-  const allItems = [
+  const allItems = useMemo(() => [
     ...recentItems,
     ...quickActions.map((a) => ({ type: 'action' as const, ...a })),
-  ]
+  ], [recentItems])
 
   const displayItems = results ?? allItems
 
+  // Keyboard navigation handler
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIndex((prev) => Math.min(prev + 1, displayItems.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIndex((prev) => Math.max(prev - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (displayItems[activeIndex]) {
+        handleSelect(displayItems[activeIndex])
+      }
+    } else if (e.key === 'Tab') {
+      e.preventDefault()
+      setActiveIndex((prev) => {
+        if (e.shiftKey) return prev <= 0 ? displayItems.length - 1 : prev - 1
+        return prev >= displayItems.length - 1 ? 0 : prev + 1
+      })
+    }
+  }, [displayItems, activeIndex, handleSelect])
+
+  // Scroll active item into view
+  useEffect(() => {
+    const container = listRef.current
+    if (!container) return
+    const activeEl = container.querySelector(`[data-idx="${activeIndex}"]`) as HTMLElement | null
+    if (activeEl) {
+      activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  }, [activeIndex])
+
+  const handleClearRecent = () => {
+    clearRecentPages()
+    toast.success('Recent history cleared')
+  }
+
   return (
-    <Dialog open={commandPaletteOpen} onOpenChange={(o) => { setCommandPaletteOpen(o); if (!o) setQuery('') }}>
-      <DialogContent className="top-[20%] max-w-xl translate-y-0 gap-0 p-0">
+    <Dialog open={commandPaletteOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="top-[15%] max-w-xl translate-y-0 gap-0 p-0">
         <DialogHeader className="sr-only">
           <DialogTitle>Command Palette</DialogTitle>
           <DialogDescription>Search pages and actions quickly</DialogDescription>
@@ -121,28 +183,34 @@ export function CommandPalette() {
         <div className="flex items-center gap-3 border-b px-4">
           <Icons.Search className="size-4 shrink-0 text-muted-foreground" />
           <input
-            autoFocus
+            ref={inputRef}
             placeholder="Search pages, actions, or type a command..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             className="h-14 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && displayItems[0]) {
-                handleSelect(displayItems[0])
-              }
-            }}
           />
           <kbd className="hidden shrink-0 rounded border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground sm:inline">
             ESC
           </kbd>
         </div>
         {/* Results */}
-        <div className="max-h-[400px] overflow-y-auto scrollbar-thin">
+        <div ref={listRef} className="max-h-[400px] overflow-y-auto scrollbar-thin">
+          {/* Recently Visited header with clear button */}
           {!results && recentItems.length > 0 && (
-            <div className="px-4 pt-3 pb-1">
+            <div className="flex items-center justify-between px-4 pt-3 pb-1">
               <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 <Icons.History className="size-3" /> Recently Visited
               </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-destructive"
+                onClick={handleClearRecent}
+                title="Clear recent history"
+              >
+                <Icons.X className="mr-0.5 size-3" /> Clear
+              </Button>
             </div>
           )}
           {!results && recentItems.length === 0 && (
@@ -167,30 +235,44 @@ export function CommandPalette() {
                 <p className="text-xs text-muted-foreground">Try a different search term</p>
               </div>
             )}
-            {displayItems.map((item: any) => (
-              <button
-                key={`${item.type}-${item.id}`}
-                onClick={() => handleSelect(item)}
-                className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent"
-              >
-                <div className={cn(
-                  'flex size-8 shrink-0 items-center justify-center rounded-lg',
-                  item.type === 'action' ? 'bg-hermes/10 text-hermes' : 'bg-muted text-muted-foreground'
-                )}>
-                  <item.icon className="size-4" />
+            {displayItems.map((item: any, idx: number) => {
+              const isActive = idx === activeIndex
+              const isRecent = item.recent && !results
+              // Find boundary between recent and actions for visual separator
+              const isLastRecent = isRecent && idx === recentItems.length - 1
+              return (
+                <div key={`${item.type}-${item.id}`}>
+                  <button
+                    data-idx={idx}
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    onClick={() => handleSelect(item)}
+                    className={cn(
+                      'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+                      isActive ? 'bg-accent ring-1 ring-shopee/30' : 'hover:bg-accent/50'
+                    )}
+                  >
+                    <div className={cn(
+                      'flex size-8 shrink-0 items-center justify-center rounded-lg transition-transform',
+                      item.type === 'action' ? 'bg-hermes/10 text-hermes' : 'bg-muted text-muted-foreground',
+                      isActive && 'scale-110'
+                    )}>
+                      <item.icon className="size-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={cn('truncate text-sm font-medium', isActive && 'text-shopee')}>{item.label}</p>
+                      <p className="truncate text-xs text-muted-foreground">{item.desc}</p>
+                    </div>
+                    {item.badge && (
+                      <Badge variant="secondary" className="shrink-0 text-[10px]">{item.badge}</Badge>
+                    )}
+                    {isActive && item.type === 'page' && (
+                      <Icons.ArrowRight className="size-3.5 shrink-0 text-shopee" />
+                    )}
+                  </button>
+                  {isLastRecent && <div className="my-1 border-t" />}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{item.label}</p>
-                  <p className="truncate text-xs text-muted-foreground">{item.desc}</p>
-                </div>
-                {item.badge && (
-                  <Badge variant="secondary" className="shrink-0 text-[10px]">{item.badge}</Badge>
-                )}
-                {item.type === 'page' && (
-                  <Icons.ArrowRight className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                )}
-              </button>
-            ))}
+              )
+            })}
           </div>
         </div>
         {/* Footer */}
@@ -201,6 +283,9 @@ export function CommandPalette() {
             </span>
             <span className="flex items-center gap-1">
               <kbd className="rounded border bg-muted px-1 py-0.5 font-semibold">↵</kbd> Select
+            </span>
+            <span className="hidden items-center gap-1 sm:flex">
+              <kbd className="rounded border bg-muted px-1 py-0.5 font-semibold">Tab</kbd> Cycle
             </span>
           </div>
           <span className="flex items-center gap-1">

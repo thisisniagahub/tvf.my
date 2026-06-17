@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { toast } from 'sonner'
 import * as Icons from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export interface LiveEvent {
   id: string
@@ -57,22 +58,59 @@ export function useLiveNotifications(enabled: boolean = true) {
   const connectedRef = useRef(false)
 
   const showToast = useCallback((event: LiveEvent) => {
-    const icon =
-      event.type === 'sale' ? <Icons.DollarSign className="size-4" /> :
-      event.type === 'trend' ? <Icons.TrendingUp className="size-4" /> :
-      event.type === 'xtra' ? <Icons.Star className="size-4" /> :
-      <Icons.Bell className="size-4" />
+    // Celebration toast for sales — custom styled with gradient background
+    if (event.type === 'sale') {
+      toast.custom((t) => (
+        <div
+          className={cn(
+            'group relative w-full overflow-hidden rounded-xl border border-success/40 bg-gradient-to-br from-success/15 via-success/5 to-background p-4 shadow-lg',
+            'animate-fade-in-up'
+          )}
+        >
+          {/* Shimmer overlay */}
+          <div className="pointer-events-none absolute inset-0 shimmer opacity-30" />
+          <div className="relative flex items-start gap-3">
+            <div className="relative flex size-10 shrink-0 items-center justify-center rounded-full bg-success text-white shadow-md">
+              <span className="absolute inset-0 rounded-full bg-success/40 pulse-ring" />
+              <Icons.DollarSign className="relative size-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold text-success">{event.title}</p>
+                {event.amount && (
+                  <span className="rounded-full bg-success px-2 py-0.5 text-[10px] font-bold text-white">
+                    +RM {event.amount.toFixed(2)}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{event.message}</p>
+            </div>
+            <button
+              onClick={() => toast.dismiss(t)}
+              className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label="Dismiss"
+            >
+              <Icons.X className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      ), { duration: 6000 })
+    } else {
+      const icon =
+        event.type === 'trend' ? <Icons.TrendingUp className="size-4" /> :
+        event.type === 'xtra' ? <Icons.Star className="size-4" /> :
+        <Icons.Bell className="size-4" />
 
-    const toastType =
-      event.type === 'sale' ? 'success' :
-      event.type === 'trend' ? 'info' :
-      event.type === 'xtra' ? 'warning' : 'info'
+      const toastType =
+        event.type === 'trend' ? 'info' :
+        event.type === 'xtra' ? 'warning' : 'info'
 
-    toast[toastType](event.title, {
-      description: event.message,
-      icon,
-      duration: 5000,
-    })
+      toast[toastType](event.title, {
+        description: event.message,
+        icon,
+        duration: 5000,
+      })
+    }
 
     // Celebrate sales and achievements with confetti
     if (typeof window !== 'undefined') {

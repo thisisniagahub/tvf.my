@@ -702,3 +702,79 @@ Stage Summary:
   4. Add a dark mode preview animation in the settings appearance tab.
   5. Polish the mobile experience — test responsive layouts on small screens, add a mobile command palette trigger.
   6. Add a "clear recent" button in the command palette to reset recently-viewed pages.
+
+---
+
+Task ID: 6 (Main orchestrator round — command palette UX, celebration toasts, theme preview, mobile FAB)
+Agent: main (Z.ai Code orchestrator)
+Task: QA the local app, then add keyboard arrow navigation in command palette, clear recent button, celebration toast variant for sales, dark mode preview animation in settings, and mobile command palette FAB.
+
+Work Log:
+- Reviewed worklog.md: app stable with confetti, recent pages, stagger animations, settings toggle, animated counters, keyboard nav, live dashboard.
+- QA with agent-browser: all 36 pages render, 0 console errors, 0 lint errors, 0 TS errors in src/. App is stable.
+
+- FEATURE: Keyboard arrow navigation (↑↓) + Enter + Tab in command palette
+  * Rewrote command-palette.tsx with `activeIndex` state tracking
+  * ArrowDown/ArrowUp moves the active highlight up/down through results
+  * Enter selects the active item and navigates
+  * Tab/Shift+Tab cycles through items
+  * Active item gets: bg-accent background, ring-1 ring-shopee/30, icon scale-110, label text-shopee color, ArrowRight indicator
+  * Mouse hover also updates activeIndex (synced)
+  * Active item auto-scrolls into view via scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  * Refactored query state to use a setQuery callback that resets activeIndex (avoids setState-in-effect lint error)
+  * Refactored palette open/close to use handleOpenChange callback that clears query + resets index
+
+- FEATURE: Clear recent button in command palette
+  * Added `clearRecentPages` action to Zustand store
+  * "Recently Visited" section header now has a "Clear" button (X icon) on the right
+  * Clicking it clears the recentPages array and shows a toast "Recent history cleared"
+  * Button has hover:text-destructive for clear intent
+
+- FEATURE: Celebration toast variant for sale notifications
+  * Updated use-live-notifications.tsx showToast: sale events now use toast.custom() with a special styled toast
+  * Custom toast features: gradient background (from-success/15 via-success/5 to-background), shimmer overlay, border-success/40
+  * Pulsing green dot icon with DollarSign, animated pulse-ring
+  * Bold green title + green "+RM X.XX" badge pill
+  * Dismiss X button
+  * 6s duration (longer than regular toasts)
+  * Non-sale events (trend, xtra) still use standard sonner toasts
+
+- FEATURE: Dark mode preview animation in settings appearance tab
+  * Added an animated theme preview Card above the theme selector in settings-page.tsx
+  * Mini dashboard mockup: logo, live indicator, 3 stat cards (Earnings/Clicks/CVR), mini bar chart
+  * Stagger entrance: stat cards fade in + rise (0.1s delay each), chart bars grow from 0 height (0.05s stagger)
+  * Background color transitions smoothly (500ms) between light/dark oklch colors when theme changes
+  * Sun/Moon icons in the hint show/hide based on active theme
+  * "Click a theme below to preview live" hint text
+
+- FEATURE: Mobile command palette FAB (floating action button)
+  * Added to app-shell.tsx: a fixed position circular button (bottom-right, above mobile nav)
+  * Shopee gradient background, Search icon, shadow with shopee tint
+  * Spring entrance animation (scale 0→1, rotate -90°→0°, delay 0.5s)
+  * whileHover scale 1.08, whileTap scale 0.92
+  * Pulsing white dot indicator (animate-ping)
+  * Only visible on mobile (md:hidden)
+  * Added pb-24 md:pb-6 to main content to prevent FAB overlap on mobile
+
+- QA verification:
+  * bun run lint: 0 errors, 0 warnings ✓
+  * tsc --noEmit: 0 errors in src/ ✓
+  * All 36 pages render: 0 failures ✓
+  * Command palette arrow navigation: ArrowDown moves highlight, Enter selects ✓
+  * Clear recent button: clears history + shows toast ✓
+  * Settings appearance tab: animated theme preview renders ✓
+  * Theme toggle from appearance tab: dark/light switches, preview animates ✓
+  * Mobile FAB: visible on iPhone 14 viewport, hidden on desktop ✓
+  * 0 console errors, 0 page errors ✓
+
+Stage Summary:
+- The local TheViralFindsMY app now has a fully keyboard-navigable command palette (↑↓ Enter Tab), a clear-recent button, celebration-styled toasts for live sales (gradient + shimmer + pulsing dot), an animated dark mode preview in settings, and a mobile FAB for command palette access.
+- The app remains stable: 0 lint errors, 0 TypeScript errors in src/, all 36 pages render, 0 console errors.
+- The command palette is now a power-user feature: mouse + full keyboard navigation, recent pages with clear, fuzzy search, quick actions.
+- Recommended next-step focus for the next recurring review:
+  1. Wire up the Prisma database (schema still has default User/Post models — add Product, Link, Campaign, Notification models and persist real data).
+  2. Add a "frequently visited" smart section in the command palette (based on visit count, not just recency).
+  3. Add a global search that searches within page content (products, campaigns, links) not just page names.
+  4. Add a "what's new" changelog modal that shows on first visit after updates.
+  5. Add skeleton loading states for pages that fetch data (Products, Trend Spy, Dashboard).
+  6. Add a breadcrumb trail in the header showing the current page hierarchy.
