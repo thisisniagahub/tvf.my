@@ -4,9 +4,13 @@ import { Sidebar } from './sidebar'
 import { Header } from './header'
 import { MobileNav } from './mobile-nav'
 import { useAppStore } from '@/store/app-store'
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
+import { AnimatePresence, motion } from 'framer-motion'
+import * as Icons from 'lucide-react'
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed)
+  const { gPressed } = useKeyboardShortcuts()
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -31,6 +35,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <MobileNav />
+
+      {/* G-key indicator overlay */}
+      <AnimatePresence>
+        {gPressed && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            transition={{ duration: 0.15 }}
+            className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 md:left-1/2"
+          >
+            <div className="flex items-center gap-3 rounded-xl border border-shopee/30 bg-background/95 px-4 py-2.5 shadow-lg backdrop-blur-md">
+              <kbd className="inline-flex h-6 min-w-6 items-center justify-center rounded border bg-shopee px-1.5 text-xs font-bold text-white">
+                G
+              </kbd>
+              <span className="text-xs font-medium text-muted-foreground">then</span>
+              <div className="flex items-center gap-1">
+                {(['D', 'P', 'L', 'A', 'E', 'H'] as const).map((k, i) => (
+                  <kbd
+                    key={k}
+                    className="inline-flex h-6 min-w-6 items-center justify-center rounded border bg-muted px-1.5 text-xs font-semibold text-muted-foreground"
+                  >
+                    {k}
+                  </kbd>
+                ))}
+                <span className="ml-1 text-[10px] text-muted-foreground">…</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
+
+// silence unused import in some builds
+void Icons

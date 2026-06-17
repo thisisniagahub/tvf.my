@@ -538,3 +538,73 @@ Stage Summary:
   4. Add keyboard shortcuts for the "G then D" navigation pattern shown in the keyboard shortcuts modal.
   5. Polish the mobile experience — test and fix any responsive issues on small screens.
   6. Add a settings page option to toggle the live notification simulation on/off.
+
+---
+
+Task ID: 4 (Main orchestrator round — micro-interactions, keyboard nav, live dashboard)
+Agent: main (Z.ai Code orchestrator)
+Task: QA the local app, then add Framer Motion micro-interactions, G-then-X keyboard navigation, wire dashboard Live Activity to live notifications, and animated number counters.
+
+Work Log:
+- Reviewed worklog.md: app stable with 7 API routes, 36 pages, command palette, AI features, live notifications.
+- QA with agent-browser: all 36 pages render, 0 console errors, 0 lint errors, 0 TS errors in src/. App is stable.
+
+- FEATURE: AnimatedNumber component (count-up animation)
+  * Created /home/z/my-project/src/components/ui/animated-number.tsx
+  * Uses framer-motion's `animate()` + `useInView` to count from 0→value when scrolled into view
+  * EaseOutExpo easing, 1.2s duration, supports prefix/suffix/decimals
+  * Integrated into _shared.tsx StatCard: auto-detects numeric values (e.g., "RM 5,487.32", "2,847", "26.4%") and animates them
+  * All StatCards across all 36 pages now have animated count-up numbers on view
+
+- FEATURE: Framer Motion micro-interactions in _shared.tsx
+  * StatCard: stagger entrance (index * 0.08s delay), hover lift (y: -4), icon scale+rotate on hover
+  * PageHeader: fade-in-down entrance, icon scale+rotate on hover
+  * SectionCard: fade-in-up entrance
+  * ComingSoonPage: spring-animated icon entrance (scale + rotate), staggered text fade-in
+
+- FEATURE: G-then-X keyboard navigation (shortcuts modal advertises this but it didn't work)
+  * Created /home/z/my-project/src/hooks/use-keyboard-shortcuts.ts
+  * Implements the "G then D" pattern from the keyboard shortcuts modal
+  * 12 page shortcuts: G+D (Dashboard), G+P (Products), G+L (Links), G+A (Analytics), G+E (Earnings), G+C (Calculator), G+M (Campaigns), G+T (Trend Spy), G+H (Hermes Hub), G+S (Settings), G+N (Notifications), G+O (Leaderboard)
+  * Direct shortcuts: B (toggle sidebar), ? (open command palette)
+  * Smart input detection: skips when typing in inputs/textareas/contenteditable
+  * 1.2s timeout on G-press (resets if no second key)
+  * Toast feedback on navigation + "Unknown shortcut" hint on invalid keys
+  * G-key indicator overlay: animated popup showing available second keys (D P L A E H …) when G is pressed
+  * Wired into app-shell.tsx so it's active whenever the user is authenticated
+
+- FEATURE: Dashboard Live Activity feed wired to live notifications
+  * Dashboard now uses the useLiveNotifications hook
+  * Live events (sales, trend alerts, XTRA commissions) appear at the TOP of the activity feed with "just now • live" timestamp
+  * AnimatePresence + layout animations: new live events slide in with a shopee-orange background flash that fades out
+  * "LIVE" badge with pulsing dot on the activity card header (shows when connected)
+  * Demo activities remain below live events for context
+  * Real-time: as live notifications arrive (every 15-35s via fallback simulation), they instantly appear in the feed
+
+- FEATURE: Dashboard stat cards stagger animation
+  * Added `index` prop to StatCards (0,1,2,3) for staggered entrance
+  * Cards fade in + slide up with 0.08s delay between each
+
+- QA verification:
+  * bun run lint: 0 errors, 0 warnings ✓
+  * tsc --noEmit: 0 errors in src/ ✓
+  * All 36 pages render: 0 failures ✓
+  * G+D navigates to Dashboard ✓, G+P to Products ✓, G+H to Hermes Hub ✓
+  * B toggles sidebar (collapsed/expanded) ✓
+  * G-key indicator overlay appears when G pressed ✓
+  * Dashboard Live Activity shows live events with "just now • live" after ~20s ✓
+  * Animated numbers render in StatCards (count from 0 to value on view) ✓
+  * 0 console errors, 0 page errors ✓
+
+Stage Summary:
+- The local TheViralFindsMY app now has polished micro-interactions throughout: animated number counters on all stat cards, staggered card entrances, hover lift/scale effects, and smooth page transitions.
+- Keyboard navigation is fully functional: G-then-X pattern (12 pages), B (sidebar toggle), ? (command palette), with a visual indicator overlay.
+- The dashboard Live Activity feed is now truly LIVE — wired to the live notifications hook, new events slide in with animation in real-time.
+- The app remains stable: 0 lint errors, 0 TypeScript errors in src/, all 36 pages render, 0 console errors.
+- Recommended next-step focus for the next recurring review:
+  1. Wire up the Prisma database (schema still has default User/Post models — add Product, Link, Campaign, Notification models and persist real data).
+  2. Add stagger animations to other pages' card grids (Products grid, Campaigns cards, Leaderboard, Achievements) for consistency.
+  3. Add a "confetti" celebration animation when a live sale notification arrives (use canvas-confetti or framer-motion).
+  4. Add a settings page toggle for the live notification simulation on/off.
+  5. Polish the mobile experience — test responsive layouts on small screens.
+  6. Add a "recently viewed pages" section to the command palette for quick re-navigation.

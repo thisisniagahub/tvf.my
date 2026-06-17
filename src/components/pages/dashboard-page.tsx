@@ -1,14 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { motion, AnimatePresence } from 'framer-motion'
 import * as Icons from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { PageHeader, StatCard, SectionCard, TrendBadge } from './_shared'
+import { PageHeader, StatCard } from './_shared'
+import { useLiveNotifications } from '@/hooks/use-live-notifications'
+import { cn } from '@/lib/utils'
 import { formatRM, formatNumber } from '@/lib/demo-data'
 import {
   AreaChart,
@@ -50,6 +53,7 @@ export function DashboardPage() {
   const { user, setActivePage } = useAppStore()
   const [hour] = useState(new Date().getHours())
   const greeting = hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening'
+  const { events: liveEvents, connected } = useLiveNotifications(true)
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard-stats'],
@@ -61,8 +65,21 @@ export function DashboardPage() {
   })
 
   const earningsData = stats?.earnings ?? []
-  const activities = stats?.activities ?? []
   const topProducts = stats?.topProducts ?? []
+
+  // Merge live events with demo activities — live events appear at the top
+  const activities = useMemo(() => {
+    const liveMapped = liveEvents.slice(0, 6).map((e) => ({
+      id: e.id,
+      type: e.type === 'xtra' ? 'commission' : (e.type === 'trend' ? 'alert' : e.type),
+      message: e.title.replace(/[🎉🔥⭐]/g, '').trim() + ' — ' + e.message,
+      amount: e.amount,
+      timestamp: 'just now',
+      live: true,
+    }))
+    const demo = (stats?.activities ?? []).map((a: any) => ({ ...a, live: false }))
+    return [...liveMapped, ...demo]
+  }, [liveEvents, stats?.activities])
 
   return (
     <div className="space-y-6">
@@ -103,10 +120,10 @@ export function DashboardPage() {
 
       {/* Stats grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Earnings" value={formatRM(5487.32)} delta="+12.5% vs last week" deltaType="up" icon={Icons.Wallet} accent="shopee" subtitle="This month" />
-        <StatCard label="Total Clicks" value={formatNumber(2847)} delta="+8.2% vs last week" deltaType="up" icon={Icons.MousePointerClick} accent="hermes" subtitle="Last 30 days" />
-        <StatCard label="Conversion Rate" value="26.4%" delta="+3.1% vs last week" deltaType="up" icon={Icons.Target} accent="success" subtitle="Above 8.5% avg" />
-        <StatCard label="Active Links" value="42" delta="+5 new" deltaType="up" icon={Icons.Link} accent="warning" subtitle="6 paused" />
+        <StatCard index={0} label="Total Earnings" value={formatRM(5487.32)} delta="+12.5% vs last week" deltaType="up" icon={Icons.Wallet} accent="shopee" subtitle="This month" />
+        <StatCard index={1} label="Total Clicks" value={formatNumber(2847)} delta="+8.2% vs last week" deltaType="up" icon={Icons.MousePointerClick} accent="hermes" subtitle="Last 30 days" />
+        <StatCard index={2} label="Conversion Rate" value="26.4%" delta="+3.1% vs last week" deltaType="up" icon={Icons.Target} accent="success" subtitle="Above 8.5% avg" />
+        <StatCard index={3} label="Active Links" value="42" delta="+5 new" deltaType="up" icon={Icons.Link} accent="warning" subtitle="6 paused" />
       </div>
 
       {/* Quick actions */}
@@ -253,6 +270,15 @@ export function DashboardPage() {
                 <span className="relative inline-flex size-2 rounded-full bg-success" />
               </div>
               <h3 className="text-sm font-semibold">Live Activity</h3>
+              {connected && (
+                <Badge variant="outline" className="ml-1 gap-0.5 border-success/30 bg-success/5 text-[9px] text-success">
+                  <span className="relative flex size-1">
+                    <span className="pulse-ring absolute inline-flex size-1 rounded-full text-success/60" />
+                    <span className="relative inline-flex size-1 rounded-full bg-success" />
+                  </span>
+                  LIVE
+                </Badge>
+              )}
             </div>
             <Button variant="ghost" size="sm" onClick={() => setActivePage('notifications')}>
               See All
@@ -261,28 +287,39 @@ export function DashboardPage() {
           <CardContent className="p-0">
             <ScrollArea className="h-[280px]">
               <div className="divide-y">
-                {activities.map((a: any) => (
-                  <div key={a.id} className="flex items-start gap-3 p-3">
-                    <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${
-                      a.type === 'sale' ? 'bg-success/15 text-success' :
-                      a.type === 'click' ? 'bg-shopee/15 text-shopee' :
-                      a.type === 'commission' ? 'bg-hermes/15 text-hermes' :
-                      'bg-warning/15 text-warning'
-                    }`}>
-                      {a.type === 'sale' && <Icons.DollarSign className="size-4" />}
-                      {a.type === 'click' && <Icons.MousePointerClick className="size-4" />}
-                      {a.type === 'commission' && <Icons.Coins className="size-4" />}
-                      {a.type === 'alert' && <Icons.BellRing className="size-4" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium">{a.message}</p>
-                      <div className="flex items-center gap-2">
-                        {a.amount && <span className="text-xs font-semibold text-success">+{formatRM(a.amount)}</span>}
-                        <span className="text-[10px] text-muted-foreground">{a.timestamp}</span>
+                <AnimatePresence initial={false}>
+                  {activities.map((a: any) => (
+                    <motion.div
+                      key={a.id}
+                      layout
+                      initial={a.live ? { opacity: 0, height: 0, backgroundColor: 'rgba(238, 77, 45, 0.08)' } : false}
+                      animate={{ opacity: 1, height: 'auto', backgroundColor: 'rgba(0,0,0,0)' }}
+                      transition={{ duration: 0.5 }}
+                      className="flex items-start gap-3 p-3"
+                    >
+                      <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${
+                        a.type === 'sale' ? 'bg-success/15 text-success' :
+                        a.type === 'click' ? 'bg-shopee/15 text-shopee' :
+                        a.type === 'commission' ? 'bg-hermes/15 text-hermes' :
+                        'bg-warning/15 text-warning'
+                      }`}>
+                        {a.type === 'sale' && <Icons.DollarSign className="size-4" />}
+                        {a.type === 'click' && <Icons.MousePointerClick className="size-4" />}
+                        {a.type === 'commission' && <Icons.Coins className="size-4" />}
+                        {a.type === 'alert' && <Icons.BellRing className="size-4" />}
                       </div>
-                    </div>
-                  </div>
-                ))}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium">{a.message}</p>
+                        <div className="flex items-center gap-2">
+                          {a.amount && <span className="text-xs font-semibold text-success">+{formatRM(a.amount)}</span>}
+                          <span className={cn('text-[10px]', a.live ? 'font-semibold text-shopee' : 'text-muted-foreground')}>
+                            {a.timestamp}{a.live ? ' • live' : ''}
+                          </span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
             </ScrollArea>
           </CardContent>
