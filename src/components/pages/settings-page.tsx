@@ -41,6 +41,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { PageHeader, SectionCard } from './_shared'
+import { McpSections } from './mcp-sections'
 import { useAppStore } from '@/store/app-store'
 import { formatRM } from '@/lib/demo-data'
 import { cn } from '@/lib/utils'
@@ -474,6 +475,9 @@ export function SettingsPage() {
 
           {/* Integrations */}
           <TabsContent value="integrations" className="mt-0 space-y-6">
+            {/* MCP Servers + Plugins — external agent servers and automation extensions */}
+            <McpSections />
+
             <SectionCard title="Connected Platforms" description="Link your affiliate accounts and tools" icon={Icons.Plug}>
               <div className="grid gap-3 sm:grid-cols-2">
                 {integrations.map((int) => {

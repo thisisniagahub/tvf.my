@@ -236,3 +236,37 @@ export interface SearchResultItem {
   icon: string
   badge?: string
 }
+
+/**
+ * Lifecycle status of the HERMES agent workspace.
+ * - `idle`: no task running
+ * - `running`: a task is actively executing
+ * - `paused`: the user has paused the agent
+ * - `completed`: the last task finished successfully
+ * - `error`: the last task failed
+ */
+export type AgentStatus = 'idle' | 'running' | 'paused' | 'completed' | 'error'
+
+/**
+ * A single atomic action performed by the HERMES agent during a task run.
+ * Mirrors the Kimi Computer "action" timeline shown alongside the browser canvas.
+ */
+export interface AgentAction {
+  id: string
+  type: 'click' | 'type' | 'navigate' | 'scroll' | 'extract' | 'done'
+  target?: string
+  value?: string
+  timestamp: string
+  status: 'pending' | 'executing' | 'success' | 'failed'
+}
+
+/**
+ * A structured log entry emitted by the HERMES agent. Rendered in the
+ * "Execution Logs" accordion inside the agent task panel.
+ */
+export interface AgentLog {
+  id: string
+  level: 'info' | 'warn' | 'error' | 'success'
+  message: string
+  timestamp: string
+}

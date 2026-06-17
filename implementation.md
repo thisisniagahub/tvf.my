@@ -637,3 +637,78 @@ Plan ini menggabungkan 3 dokumen:
 ---
 
 *This implementation plan is a living document. Update checklist status as tasks are completed. Review weekly on Monday mornings.*
+
+---
+
+## 🖥️ PHASE 6: COMPUTER-USE AGENT + MCP SERVERS (NEW)
+
+> **Goal:** Transform TheViralFindsMY dari SaaS dashboard ke Autonomous AI Command Center dengan Kimi Computer-style split-screen + MCP plugin ecosystem.
+
+### 6.1 MCP Server Config + Plugin System 🔴
+
+Allow users connect their own Hermes Agent / OpenClaw via MCP (Model Context Protocol).
+
+- [ ] Buat `src/lib/mcp/mcp-server.ts` — MCP server implementation
+- [ ] Buat `src/lib/mcp/plugin-registry.ts` — plugin registry
+- [ ] Buat `src/app/api/mcp/servers/route.ts` — CRUD untuk MCP server configs
+- [ ] Buat `src/app/api/mcp/plugins/route.ts` — plugin management
+- [ ] Settings → Integrations tab: tambah "MCP Servers" section
+- [ ] Connection manager: test connection, status indicator
+- [ ] Pre-built MCP server profiles:
+  - [ ] Hermes Agent (Nous Research)
+  - [ ] OpenClaw
+  - [ ] Custom MCP endpoint
+
+### 6.2 Split-Screen Workspace UI 🔴
+
+Kimi Computer-style interactive split-screen.
+
+- [ ] Install `react-resizable-panels` (sudah ada ✅)
+- [ ] Buat `src/components/agent-workspace/agent-workspace.tsx` — main split-screen container
+- [ ] Buat `src/components/agent-workspace/agent-trigger-button.tsx` — "Run Hermes Agent Automation" button
+- [ ] Buat `src/components/agent-workspace/virtual-browser-canvas.tsx` — right panel (60%)
+- [ ] Buat `src/components/agent-workspace/agent-control-bar.tsx` — status bar (URL, status, controls)
+- [ ] Buat `src/components/agent-workspace/agent-task-panel.tsx` — task configuration (left side of right panel)
+- [ ] Update `src/app/page.tsx` — wrap AppShell dalam ResizablePanelGroup
+- [ ] Default state: right panel collapsed (0%). Expand to 60% on trigger.
+
+### 6.3 WebSocket Browser Service 🔴
+
+Mini-service untuk browser automation + screenshot streaming.
+
+- [ ] Buat `mini-services/agent-browser-service/` — new Bun mini-service
+- [ ] Guna Playwright atau CDP untuk browser control
+- [ ] Screenshot streaming via WebSocket (binary frames, WebP compression)
+- [ ] Action handlers: click, type, navigate, scroll, extract
+- [ ] Session isolation (each user = separate browser context)
+- [ ] Auto-reconnect logic
+- [ ] Port: 3004
+
+### 6.4 VLA Loop Core (AI Agent) 🔴
+
+Vision-Language-Action loop: Screenshot → LLM → Action → Repeat.
+
+- [ ] Buat `src/lib/agent-v2/vla-loop.ts` — main VLA loop
+- [ ] Buat `src/lib/agent-v2/action-types.ts` — click, type, navigate, scroll, extract, done
+- [ ] Buat `src/lib/agent-v2/task-definitions.ts` — task templates
+- [ ] Guna z-ai-web-dev-sdk VLM untuk screenshot analysis
+- [ ] Buat `src/app/api/agent/execute/route.ts` — start VLA loop
+- [ ] Buat `src/app/api/agent/status/route.ts` — get agent status
+- [ ] Buat `src/app/api/agent/stop/route.ts` — stop agent
+
+### 6.5 Killer Use Cases 🔴
+
+3 pre-built automation tasks.
+
+- [ ] **No-API Live Data Sync** — login Shopee/Lazada affiliate, scrape commission data
+- [ ] **Autonomous Trend Spy** — scroll TikTok, find viral items, extract product info
+- [ ] **Auto-Content Deployment** — publish to FB/IG/TikTok Web dengan AI-generated content
+
+### 6.6 Security & Legal 🔴
+
+- [ ] Encrypted credential storage (never store plain text)
+- [ ] Browser session sandboxing
+- [ ] Legal disclaimer modal (user acknowledges responsibility)
+- [ ] Rate limiting untuk agent execution
+- [ ] Audit log untuk all agent actions
+

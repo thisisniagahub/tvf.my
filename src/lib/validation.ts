@@ -168,6 +168,73 @@ export const toolGatewaySchema = z.object({
   params: z.record(z.string(), z.unknown()),
 })
 
+// ============== Agent v2 (VLA Loop) Schemas ==============
+//
+// Unified P6-3 + P6-4 surface:
+//   - agentExecuteSchema: POST /api/agent/execute | POST /api/agent/tasks
+//       Body: { taskId, userId?, steps?, options?: { maxIterations?, timeout? } }
+//       - P6-3 callers pass { taskId, userId?, steps? } for single-pass planning.
+//       - P6-4 callers pass { taskId, options? } to start a multi-pass VlaLoop job.
+//   - agentStopSchema:    POST /api/agent/stop
+//       Body: { taskId?, userId?, jobId? }
+//       - P6-3 callers pass { taskId?, userId? } for socket-based stop.
+//       - P6-4 callers pass { jobId } to stop a registered VlaLoop job.
+//   - credentialSchema:   POST /api/agent/credentials (P6-4)
+
+export const agentExecuteSchema = z.object({
+  taskId: z.string().min(1, 'taskId is required').max(80),
+  userId: z.string().max(80).optional(),
+  /** Optional override of the planned steps (otherwise uses task defaults). */
+  steps: z.array(z.string().max(500)).max(20).optional(),
+  /** P6-4: optional loop-budget overrides for the multi-pass VlaLoop. */
+  options: z
+    .object({
+      maxIterations: z.number().int().min(1).max(20).optional(),
+      timeout: z.number().int().min(30).max(300).optional(),
+    })
+    .optional(),
+})
+
+export const agentStopSchema = z.object({
+  taskId: z.string().min(1, 'taskId is required').max(80).optional(),
+  userId: z.string().max(80).optional(),
+  /** P6-4: stop a specific VlaLoop job by id. */
+  jobId: z.string().min(1, 'jobId is required').optional(),
+})
+
+// ============== MCP Server Schemas ==============
+
+export const mcpServerSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
+  type: z.enum(['hermes', 'openclaw', 'custom']),
+  endpoint: z.string().url('Invalid endpoint URL'),
+  apiKey: z.string().max(500).optional(),
+  capabilities: z.array(z.string().max(60)).max(20).optional(),
+})
+
+export const mcpServerToggleSchema = z.object({
+  // No body required — kept for future status overrides
+  status: z.enum(['connected', 'disconnected', 'error']).optional(),
+})
+
+// ============== Plugin Schemas ==============
+
+export const pluginInstallSchema = z.object({
+  catalogId: z.string().min(1, 'catalogId is required'),
+})
+
+export const pluginToggleSchema = z.object({
+  enabled: z.boolean(),
+})
+
+// ============== Agent v2 Credential Store Schema ==============
+
+export const credentialSchema = z.object({
+  platform: z.string().min(1, 'Platform is required').max(50),
+  username: z.string().min(1, 'Username is required').max(200),
+  password: z.string().min(1, 'Password is required').max(500),
+})
+
 // ============== Helper: Validate and parse ==============
 
 export function validateInput<T>(

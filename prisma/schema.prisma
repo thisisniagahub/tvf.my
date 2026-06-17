@@ -116,3 +116,45 @@ model HermesSubagent {
   @@index([userId, status])
   @@map("hermes_subagents")
 }
+
+/// MCP (Model Context Protocol) Servers — external agent servers the user
+/// connects to (e.g. Hermes Agent, OpenClaw, or a custom MCP endpoint).
+/// Note: SQLite does not support list-of-primitives, so `capabilities` is
+/// stored as a JSON-encoded string. Application layer handles
+/// (de)serialization via JSON.parse / JSON.stringify.
+model McpServer {
+  id           String    @id @default(cuid())
+  userId       String    @default("demo-user")
+  name         String
+  type         String // 'hermes' | 'openclaw' | 'custom'
+  endpoint     String // WebSocket or HTTP URL
+  apiKey       String? // Encrypted API key (best-effort; plaintext for now)
+  status       String    @default("disconnected") // 'connected' | 'disconnected' | 'error'
+  capabilities String // JSON-encoded array of capability strings
+  lastConnected DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("mcp_servers")
+}
+
+/// Plugins — installable extensions (automation/agent/integration) the user
+/// can enable or disable. Seeded from the plugin catalog; persisted config
+/// is stored as a JSON-encoded string because SQLite does not support
+/// list-of-primitives or arbitrary JSON columns.
+model Plugin {
+  id          String   @id @default(cuid())
+  userId      String   @default("demo-user")
+  name        String
+  description String
+  type        String // 'agent' | 'integration' | 'automation'
+  config      String // JSON-encoded config object
+  enabled     Boolean  @default(false)
+  version     String   @default("1.0.0")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, enabled])
+  @@map("plugins")
+}

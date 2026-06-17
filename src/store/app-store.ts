@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { PageId, User } from '@/lib/types'
+import type { AgentAction, AgentLog, AgentStatus, PageId, User } from '@/lib/types'
 
 interface AppState {
   isAuthenticated: boolean
@@ -21,6 +21,15 @@ interface AppState {
   focusMode: boolean
   notificationSoundEnabled: boolean
   shortcutsOpen: boolean
+
+  // HERMES Agent Workspace (Kimi Computer-style split screen)
+  agentWorkspaceOpen: boolean
+  agentTask: string | null
+  agentStatus: AgentStatus
+  agentUrl: string
+  agentScreenshot: string | null
+  agentActions: AgentAction[]
+  agentLogs: AgentLog[]
 
   login: (user?: Partial<User>) => void
   logout: () => void
@@ -41,6 +50,17 @@ interface AppState {
   setShortcutsOpen: (open: boolean) => void
   resetAllSettings: () => void
   importSettings: (settings: Partial<AppState>) => void
+
+  // Agent workspace actions
+  setAgentWorkspaceOpen: (open: boolean) => void
+  setAgentTask: (task: string | null) => void
+  setAgentStatus: (status: AgentStatus) => void
+  setAgentUrl: (url: string) => void
+  setAgentScreenshot: (screenshot: string | null) => void
+  addAgentAction: (action: AgentAction) => void
+  clearAgentActions: () => void
+  addAgentLog: (log: AgentLog) => void
+  clearAgentLogs: () => void
 }
 
 const defaultUser: User = {
@@ -71,6 +91,15 @@ export const useAppStore = create<AppState>()(
       focusMode: false,
       notificationSoundEnabled: false,
       shortcutsOpen: false,
+
+      // Agent workspace — default closed, idle, empty
+      agentWorkspaceOpen: false,
+      agentTask: null,
+      agentStatus: 'idle',
+      agentUrl: '',
+      agentScreenshot: null,
+      agentActions: [],
+      agentLogs: [],
 
       login: (user) =>
         set((state) => ({
@@ -132,8 +161,28 @@ export const useAppStore = create<AppState>()(
           commandPaletteOpen: false,
           shortcutsOpen: false,
           activePage: 'dashboard',
+          agentWorkspaceOpen: false,
+          agentTask: null,
+          agentStatus: 'idle',
+          agentUrl: '',
+          agentScreenshot: null,
+          agentActions: [],
+          agentLogs: [],
         }),
       importSettings: (settings) => set(settings),
+
+      // Agent workspace action implementations
+      setAgentWorkspaceOpen: (open) => set({ agentWorkspaceOpen: open }),
+      setAgentTask: (task) => set({ agentTask: task }),
+      setAgentStatus: (status) => set({ agentStatus: status }),
+      setAgentUrl: (url) => set({ agentUrl: url }),
+      setAgentScreenshot: (screenshot) => set({ agentScreenshot: screenshot }),
+      addAgentAction: (action) =>
+        set((state) => ({ agentActions: [...state.agentActions, action] })),
+      clearAgentActions: () => set({ agentActions: [] }),
+      addAgentLog: (log) =>
+        set((state) => ({ agentLogs: [...state.agentLogs, log] })),
+      clearAgentLogs: () => set({ agentLogs: [] }),
     }),
     {
       name: 'tvfm-store',
@@ -151,6 +200,12 @@ export const useAppStore = create<AppState>()(
         liveNotificationsEnabled: state.liveNotificationsEnabled,
         notificationSoundEnabled: state.notificationSoundEnabled,
         focusMode: state.focusMode,
+        // Persist only the open/closed state of the agent workspace so the
+        // user's layout preference survives reloads. We intentionally do NOT
+        // persist agentScreenshot (base64 — too large for localStorage),
+        // agentActions, agentLogs, agentStatus, agentTask or agentUrl — these
+        // are ephemeral run-scoped state.
+        agentWorkspaceOpen: state.agentWorkspaceOpen,
       }),
     }
   )
