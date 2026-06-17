@@ -90,6 +90,84 @@ export const searchSchema = z.object({
   q: z.string().min(2, 'Query must be at least 2 characters').max(100),
 })
 
+// ============== HERMES Memory Schema ==============
+
+export const hermesMemoryCreateSchema = z.object({
+  userId: z.string().min(1).max(120).default('demo-user'),
+  type: z.enum(['agent', 'user']),
+  content: z.string().min(1, 'Content is required').max(2000),
+  tags: z.array(z.string().max(40)).max(10).optional(),
+})
+
+export const hermesMemoryClearSchema = z.object({
+  userId: z.string().min(1).max(120).default('demo-user'),
+  type: z.enum(['agent', 'user']).optional(),
+})
+
+// ============== HERMES Skills Schema ==============
+
+export const hermesSkillCreateSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(120),
+  description: z.string().min(1, 'Description is required').max(500),
+  category: z.string().min(1).max(60),
+  content: z.string().min(1, 'Content is required').max(20000),
+  trigger: z.string().max(500).optional(),
+})
+
+export const hermesSkillUpdateSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  description: z.string().min(1).max(500).optional(),
+  category: z.string().min(1).max(60).optional(),
+  content: z.string().min(1).max(20000).optional(),
+  trigger: z.string().max(500).nullable().optional(),
+  status: z.enum(['active', 'draft', 'archived']).optional(),
+})
+
+// ============== HERMES v2 Cron Job Schemas ==============
+
+export const createCronJobSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(120),
+  description: z.string().min(1, 'Description is required').max(500),
+  schedule: z.string().min(1, 'Schedule is required').max(120),
+  skills: z.array(z.string().min(1).max(80)).max(20).default([]),
+  deliverTo: z.enum(['chat', 'notification', 'email']).default('chat'),
+  userId: z.string().max(80).optional(),
+})
+
+export const updateCronJobSchema = z.object({
+  status: z.enum(['active', 'paused']),
+})
+
+export const executeCronJobSchema = z.object({
+  jobId: z.string().min(1, 'jobId is required'),
+})
+
+// ============== HERMES v2 Subagent Delegation Schemas ==============
+
+export const delegateSubagentSchema = z.object({
+  goal: z.string().min(1, 'Goal is required').max(2000),
+  context: z.string().max(4000).default(''),
+  toolsets: z.array(z.string().min(1).max(60)).max(10).default([]),
+  maxIterations: z.number().int().min(1).max(20).optional(),
+  timeout: z.number().int().min(5).max(600).optional(),
+  userId: z.string().max(80).optional(),
+  parentId: z.string().max(80).optional(),
+})
+
+export const delegateBatchSchema = z.object({
+  tasks: z
+    .array(delegateSubagentSchema)
+    .min(1, 'At least one task is required')
+    .max(10),
+})
+
+// ============== HERMES v2 Tool Gateway Schema ==============
+
+export const toolGatewaySchema = z.object({
+  tool: z.enum(['webSearch', 'generateImage', 'textToSpeech', 'readWebPage']),
+  params: z.record(z.string(), z.unknown()),
+})
+
 // ============== Helper: Validate and parse ==============
 
 export function validateInput<T>(

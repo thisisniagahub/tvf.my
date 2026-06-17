@@ -19,24 +19,25 @@ import { PageHeader, StatCard, TrendBadge, StatCardSkeleton, ListRowSkeleton } f
 import { formatRM } from '@/lib/demo-data'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import type { TrendsResponse } from '@/lib/types'
 
 export function TrendSpyPage() {
   const { setActivePage } = useAppStore()
   const [activeCat, setActiveCat] = useState<string | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<TrendsResponse>({
     queryKey: ['trends'],
     queryFn: async () => {
       const res = await fetch('/api/trends')
       if (!res.ok) throw new Error('Failed')
-      return res.json()
+      return res.json() as Promise<TrendsResponse>
     },
   })
 
   const categories = data?.categories ?? []
   const trends = data?.trends ?? []
 
-  const filtered = activeCat ? trends.filter((t: any) => t.category === activeCat) : trends
+  const filtered = activeCat ? trends.filter((t) => t.category === activeCat) : trends
 
   return (
     <div className="space-y-6">
@@ -66,7 +67,7 @@ export function TrendSpyPage() {
         ) : (
           <>
             <StatCard label="Trending Products" value={trends.length.toString()} icon={Icons.Radar} accent="hermes" subtitle="Detected today" />
-            <StatCard label="Hot Categories" value={categories.filter((c: any) => c.status === 'hot').length.toString()} icon={Icons.Flame} accent="shopee" subtitle="Above 70% velocity" />
+            <StatCard label="Hot Categories" value={categories.filter((c) => c.status === 'hot').length.toString()} icon={Icons.Flame} accent="shopee" subtitle="Above 70% velocity" />
             <StatCard label="Your Watchlist" value="12" icon={Icons.Eye} accent="success" subtitle="Products tracked" />
             <StatCard label="Active Alerts" value="5" icon={Icons.BellRing} accent="warning" subtitle="Notification on" />
           </>
@@ -81,7 +82,7 @@ export function TrendSpyPage() {
         </div>
         <CardContent className="p-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-            {categories.map((cat: any) => {
+            {categories.map((cat) => {
               const intensity = Math.min(1, cat.velocity / 100)
               const isActive = activeCat === cat.name
               return (
@@ -149,7 +150,7 @@ export function TrendSpyPage() {
                   <p className="text-xs text-muted-foreground">Try a different category filter</p>
                 </div>
               ) : (
-                filtered.map((t: any) => (
+                filtered.map((t) => (
                 <div key={t.id} className="flex items-center gap-4 p-4 hover:bg-accent/40">
                   <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-muted/60 to-muted">
                     <Icons.Package className="size-6 text-muted-foreground/50" />

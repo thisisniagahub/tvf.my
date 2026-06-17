@@ -1,0 +1,640 @@
+     1→# TheViralFindsMY — Unified Implementation Plan
+     2→## Compiled from: Code Review + Hermes Agent Integration + Master Plan
+     3→
+     4→> **Generated:** 17 June 2026  
+     5→> **Current Score:** 7.5/10 (after Phase 0 + partial Phase 1-3)  
+     6→> **Target Score:** 10.0/10  
+     7→> **Total Remaining Effort:** ~200 hours (10 weeks)  
+     8→> **Team:** 1-2 developers  
+     9→> **Philosophy:** Add-on & upgrade only — NEVER remove existing features
+    10→
+    11→---
+    12→
+    13→## 📊 SCORE TRACKER (Updated)
+    14→
+    15→| Kriteria | Original | Current | Target | Status |
+    16→|----------|----------|---------|--------|--------|
+    17→| Arsitektur | 7/10 | 7/10 | 10/10 | 🟡 In Progress |
+    18→| Type Safety | 3/10 | 7/10 | 10/10 | 🟡 In Progress |
+    19→| Code Quality | 4/10 | 7/10 | 10/10 | 🟡 In Progress |
+    20→| UI/UX | 9/10 | 9/10 | 10/10 | 🟢 Near Complete |
+    21→| Performance | 7/10 | 7/10 | 10/10 | 🔴 Not Started |
+    22→| Security | 5/10 | 8/10 | 10/10 | 🟡 In Progress |
+    23→| **Testing** | **0/10** | **4/10** | **10/10** | **🟡 In Progress** |
+    24→| Documentation | 6/10 | 8/10 | 10/10 | 🟡 In Progress |
+    25→| Database Design | 8/10 | 8/10 | 10/10 | 🟢 Near Complete |
+    26→| Feature Completeness | 10/10 | 10/10 | 10/10 | ✅ Complete |
+    27→| **OVERALL** | **6.0** | **7.5** | **10.0** | **🟡 50%** |
+    28→
+    29→**Legend:** ✅ Complete | 🟢 Near Complete | 🟡 In Progress | 🔴 Not Started
+    30→
+    31→---
+    32→
+    33→## ⚠️ CRITICAL NOTE: Local vs Deployed Codebase
+    34→
+    35→> **PENTING:** Code Review merujuk kepada **deployed version** (98,393 baris, 60+ API routes, 25+ Prisma models, page components 2000+ baris). Local project kita adalah **rebuild dari scratch** yang lebih kecil (8 API routes, 36 pages, default Prisma schema). Beberapa task dalam Code Review (refactor page 2000+ baris, service layer untuk 60+ routes) **tidak applicable** ke local codebase. Tugas yang applicable sahaja dimasukkan dalam plan ini.
+    36→
+    37→---
+    38→
+    39→## ✅ PHASE 0: P0 CRITICAL FIXES — COMPLETED
+    40→
+    41→| # | Task | File(s) | Status | Notes |
+    42→|---|------|---------|--------|-------|
+    43→| 0.1 | Fix ESLint — aktifkan rules kritis | `eslint.config.mjs` | ✅ DONE | Rules as warnings |
+    44→| 0.2 | Fix TypeScript — `noImplicitAny: true` | `tsconfig.json` | ✅ DONE | + strictNullChecks |
+    45→| 0.3 | Hapus `ignoreBuildErrors` dari Next.js | `next.config.ts` | ✅ DONE | |
+    46→| 0.4 | Aktifkan React StrictMode | `next.config.ts` | ✅ DONE | |
+    47→| 0.5 | Buat `.env.example` template | `.env.example` | ✅ DONE | All vars documented |
+    48→| 0.6 | Fix Tailwind v4 config mismatch | `tailwind.config.ts` | ✅ DONE | Already using CSS-first |
+    49→| 0.7 | Env validation utility | `src/lib/env.ts` | ✅ DONE | Lazy-loaded Proxy |
+    50→
+    51→**Impact: +1.5 skor (6.0 → 7.5)**
+    52→
+    53→---
+    54→
+    55→## 📝 PHASE 1: CODE QUALITY & TYPE SAFETY (Week 1-2)
+    56→**Goal: 7.5 → 8.3 (+0.8)** | Effort: 30h remaining
+    57→
+    58→### 1.1 Fix All `any` Types 🟡 PARTIAL
+    59→
+    60→- [x] Fix `any` types di semua 8 API routes (hermes/chat, content/script, ai/thumbnails, ai/voiceover, search, dashboard, products, trends)
+    61→- [ ] Fix `any` types di page components (107 remaining warnings — mostly `(item: any)` di map callbacks)
+    62→- [ ] Fix `any` types di hooks (`use-live-notifications.tsx` — `event: LiveEvent` done, check others)
+    63→- [ ] Buat shared Recharts tooltip types (`src/types/recharts.ts`)
+    64→- [ ] Buat `src/types/api.ts` — standardized API response types
+    65→
+    66→**Suggestion:** Jangan jadikan `any` sebagai error — biarkan warning. Page components yang guna demo data dengan shape dinamik kadang-kadang memerlukan `any` untuk flexibility. Prioritaskan API routes dan hooks sahaja.
+    67→
+    68→### 1.2 Replace console.log with Logger ✅ DONE
+    69→
+    70→- [x] Buat `src/lib/logger.ts` — structured logger with levels (debug/info/warn/error) + `handleApiError()`
+    71→- [x] Replace `console.log`/`console.error` di semua 8 API routes
+    72→- [x] Replace `console.error` dengan `logger.error`
+    73→- [ ] Replace `console.log` di page components (jika ada)
+    74→- [ ] Setup production-only error reporting (Sentry-ready) — deferred to Phase 5.3
+    75→
+    76→### 1.3 Zod Input Validation ✅ DONE
+    77→
+    78→- [x] Buat `src/lib/validation.ts` — 9 schemas (login, register, createLink, createCampaign, hermesChat, contentScript, aiThumbnails, aiVoiceover, search) + `validateInput()`
+    79→- [x] Apply validation di `hermes/chat/route.ts`
+    80→- [x] Apply validation di `content/script/route.ts`
+    81→- [x] Apply validation di `ai/thumbnails/route.ts`
+    82→- [x] Apply validation di `ai/voiceover/route.ts`
+    83→- [x] Apply validation di `search/route.ts`
+    84→- [ ] Apply validation di future auth routes (bila ditambah)
+    85→
+    86→### 1.4 Fix Hardcoded Secrets ✅ DONE
+    87→
+    88→- [x] Buat `src/lib/env.ts` — validates required env vars at startup
+    89→- [x] `.env.example` dengan required vs optional fields
+    90→- [x] Fail-fast kalau `DATABASE_URL` atau `NEXTAUTH_SECRET` tidak di-set
+    91→- [ ] Validate env vars at startup (call `checkEnv()` in middleware) — low priority
+    92→
+    93→---
+    94→
+    95→## 🧪 PHASE 2: TESTING INFRASTRUCTURE (Week 2-4)
+    96→**Goal: 8.3 → 8.8 (+0.5)** | Effort: 30h remaining
+    97→
+    98→### 2.1 Setup Testing Framework ✅ DONE
+    99→
+   100→- [x] Install: `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`, `@vitest/coverage-v8`, `jsdom`, `@vitejs/plugin-react`
+   101→- [x] Buat `vitest.config.ts` — jsdom env, globals, coverage
+   102→- [x] Buat `src/test/setup.ts` — mock next-navigation, next-themes
+   103→- [x] Update `package.json` scripts: `test`, `test:watch`, `test:coverage`, `test:ui`
+   104→
+   105→### 2.2 Unit Tests ✅ PARTIAL (121 tests passing)
+   106→
+   107→- [x] `src/lib/utils.test.ts` — `cn()` utility (17 tests)
+   108→- [x] `src/lib/logger.test.ts` — logger levels + handleApiError (12 tests)
+   109→- [x] `src/lib/validation.test.ts` — all 9 Zod schemas (56 tests)
+   110→- [x] `src/lib/demo-data.test.ts` — formatRM, formatNumber, navItems (36 tests)
+   111→- [ ] `src/lib/env.test.ts` — env validation
+   112→- [ ] `src/lib/rate-limit.test.ts` — rate limiter logic
+   113→- [ ] `src/lib/sounds.test.ts` — Web Audio API (mock)
+   114→- [ ] `src/lib/confetti.test.ts` — confetti functions (mock canvas)
+   115→
+   116→### 2.3 Component Tests 🔴 NOT STARTED
+   117→
+   118→- [ ] `src/components/ui/button.test.tsx` — rendering, variants
+   119→- [ ] `src/components/ui/animated-number.test.tsx` — count-up animation
+   120→- [ ] `src/components/modals/command-palette.test.tsx` — search, navigation
+   121→- [ ] `src/components/modals/changelog-modal.test.tsx` — auto-show, dismiss
+   122→- [ ] `src/components/modals/shortcuts-modal.test.tsx` — cheat sheet rendering
+   123→- [ ] `src/components/layout/sidebar.test.tsx` — navigation, pin/unpin
+   124→- [ ] `src/components/layout/header.test.tsx` — search, theme toggle, notifications
+   125→
+   126→### 2.4 API Route Tests 🔴 NOT STARTED
+   127→
+   128→- [ ] `src/app/api/dashboard/route.test.ts`
+   129→- [ ] `src/app/api/products/route.test.ts`
+   130→- [ ] `src/app/api/trends/route.test.ts`
+   131→- [ ] `src/app/api/search/route.test.ts`
+   132→- [ ] `src/app/api/hermes/chat/route.test.ts` — mock z-ai-web-dev-sdk
+   133→- [ ] `src/app/api/content/script/route.test.ts`
+   134→- [ ] `src/app/api/ai/thumbnails/route.test.ts`
+   135→- [ ] `src/app/api/ai/voiceover/route.test.ts`
+   136→
+   137→### 2.5 Integration Tests 🔴 NOT STARTED
+   138→
+   139→- [ ] Dashboard: fetch stats → validate shape → render charts
+   140→- [ ] Products: filter by category → search → detail dialog
+   141→- [ ] Command palette: search → navigate → recent pages
+   142→- [ ] Live notifications: WebSocket connect → event → toast → confetti
+   143→- [ ] Theme: toggle dark/light → persist → all components adapt
+   144→
+   145→### 2.6 Coverage Target 🟡
+   146→
+   147→- [x] Current: ~20% (4 lib files at 100%)
+   148→- [ ] 50% coverage by end of Week 3
+   149→- [ ] 70% coverage by end of Week 4
+   150→
+   151→---
+   152→
+   153→## ⚡ PHASE 3: PERFORMANCE & ARCHITECTURE (Week 4-6)
+   154→**Goal: 8.8 → 9.3 (+0.5)** | Effort: 40h
+   155→
+   156→### 3.1 Server Components Migration 🟡 CAUTION
+   157→
+   158→> **⚠️ SUGGESTION:** App kita guna Zustand-driven SPA routing (bukan Next.js file routing). Full Server Component migration akan break SPA experience (instant page transitions, command palette, keyboard navigation). Suggest **HYBRID approach** sahaja:
+   159→> - Keep page components as Client Components (Zustand routing)
+   160→> - Move data-fetching logic to API routes (already done)
+   161→> - Add Server Components untuk static content (landing page, documentation)
+   162→
+   163→- [ ] Refactor `LandingPage` → Server Component (static marketing content)
+   164→- [ ] Add `generateMetadata` untuk SEO di layout.tsx
+   165→- [ ] Add `generateStaticParams` untuk potential SSG routes
+   166→- [ ] ~~Refactor DashboardPage → Server Component~~ ❌ NOT SUITABLE (needs Zustand state)
+   167→
+   168→### 3.2 Rate Limiting ✅ DONE
+   169→
+   170→- [x] Implement `src/lib/rate-limit.ts` — token bucket algorithm
+   171→- [x] Apply ke semua 8 API routes:
+   172→  - [x] Auth routes: 5 req/min (preset ready, no auth routes yet)
+   173→  - [x] API data routes: 100 req/min (dashboard, products, trends)
+   174→  - [x] AI routes: 10 req/min (hermes/chat, content/script, ai/thumbnails, ai/voiceover)
+   175→  - [x] Search routes: 30 req/min
+   176→- [x] Return `429 Too Many Requests` with `Retry-After` header
+   177→
+   178→### 3.3 Bundle Optimization 🔴 NOT STARTED
+   179→
+   180→- [ ] Analyse bundle size: `next bundle-analyzer`
+   181→- [ ] Code split large dependencies:
+   182→  - [ ] Lazy load `recharts` (only when chart pages active)
+   183→  - [ ] Lazy load `canvas-confetti` (already dynamic import ✅)
+   184→  - [ ] Lazy load `framer-motion` (currently loaded globally)
+   185→  - [ ] Lazy load `socket.io-client` (already dynamic ✅)
+   186→- [ ] Tree-shake unused lucide-react icons (use specific imports)
+   187→- [ ] Target: <500KB initial bundle
+   188→
+   189→### 3.4 Image Optimization 🔴 NOT STARTED
+   190→
+   191→- [ ] Replace `<img>` dengan Next.js `<Image>` component
+   192→- [ ] Setup image domains di `next.config.ts` (shopee.com.my, etc.)
+   193→- [ ] Add `priority` ke LCP images (product thumbnails, hero)
+   194→- [ ] Add `placeholder="blur"` untuk above-the-fold images
+   195→- [ ] Convert product placeholder to use `<Image>` with gradient fallback
+   196→
+   197→### 3.5 API Documentation (OpenAPI) 🔴 NOT STARTED
+   198→
+   199→- [ ] Install `@asteasolutions/zod-to-openapi`
+   200→- [ ] Define OpenAPI spec dari Zod schemas (already have 9 schemas)
+   201→- [ ] Generate Swagger UI endpoint: `/api/docs`
+   202→- [ ] Add API documentation link di Settings → About tab
+   203→
+   204→---
+   205→
+   206→## 🤖 PHASE 4: HERMES AGENT v2.0 INTEGRATION (Week 6-10)
+   207→**Goal: 9.3 → 9.7 (+0.4)** | Effort: 80h
+   208→
+   209→> **🔑 KEY DECISION:** Hermes Agent plan merujuk kepada external services (FAL.ai, OpenAI TTS, Browserbase, Telegraf). **SUGGESTION:** Guna `z-ai-web-dev-sdk` yang suda terintegrasi untuk AI capabilities (LLM, image gen, TTS, web search). Hanya tambah external services bila z-ai-web-dev-sdk tak support feature tersebut.
+   210→
+   211→### 4.1 Memory System (Phase 1 dari Hermes) 🔴 NOT STARTED
+   212→
+   213→- [ ] Update Prisma schema — `AgentMemory` model:
+   214→  ```prisma
+   215→  model AgentMemory {
+   216→    id        String   @id @default(cuid())
+   217→    userId    String
+   218→    type      String   // 'agent' | 'user'
+   219→    content   String
+   220→    tags      String[]
+   221→    createdAt DateTime @default(now())
+   222→    updatedAt DateTime @updatedAt
+   223→    @@index([userId, type])
+   224→  }
+   225→  ```
+   226→- [ ] Buat `src/lib/hermes-v2/memory-service.ts`:
+   227→  - [ ] `getAgentMemory(userId)` — fetch agent notes (MEMORY.md equivalent)
+   228→  - [ ] `getUserProfile(userId)` — fetch user preferences (USER.md equivalent)
+   229→  - [ ] `addMemory(userId, content, tags)` — add with capacity check (2200 chars agent, 1375 user)
+   230→  - [ ] `consolidateMemory(userId)` — AI-powered consolidation via z-ai-web-dev-sdk
+   231→- [ ] Integrasi memory ke HERMES chat context (prepend to system prompt)
+   232→- [ ] UI: "Memory" tab di Hermes Hub showing agent notes + user profile
+   233→- [ ] Auto-capture: save successful interactions as memory entries
+   234→
+   235→### 4.2 Skills System v2 (Phase 2 dari Hermes) 🔴 NOT STARTED
+   236→
+   237→- [ ] Update Prisma schema — `HermesSkill` model:
+   238→  ```prisma
+   239→  model HermesSkill {
+   240→    id          String   @id @default(cuid())
+   241→    name        String
+   242→    description String
+   243→    category    String
+   244→    content     String   // Markdown
+   245→    trigger     String?  // Regex pattern
+   246→    status      String   @default("active")
+   247→    usageCount  Int      @default(0)
+   248→    successRate Float    @default(0)
+   249→    version     Int      @default(1)
+   250→    createdAt   DateTime @default(now())
+   251→    updatedAt   DateTime @updatedAt
+   252→  }
+   253→  ```
+   254→- [ ] Buat `src/lib/hermes-v2/skills-engine.ts`:
+   255→  - [ ] `loadSkill(skillId)` — progressive disclosure (load on-demand)
+   256→  - [ ] `autoDetectSkill(query)` — auto-detect dari trigger regex
+   257→  - [ ] `createSkillFromExperience(...)` — learning loop (create dari successful interactions)
+   258→  - [ ] `updateSkillSuccessRate(skillId, success)` — track performance
+   259→- [ ] Migrate hardcoded affiliate knowledge ke skills format
+   260→- [ ] Buat affiliate-specific skills (markdown files):
+   261→  - [ ] `skills/affiliate-product-research.md`
+   262→  - [ ] `skills/affiliate-content-generation.md`
+   263→  - [ ] `skills/affiliate-trend-analysis.md`
+   264→  - [ ] `skills/affiliate-competitor-spy.md`
+   265→  - [ ] `skills/affiliate-manglish-style.md`
+   266→- [ ] UI: "Skills" tab di Hermes Hub showing skill catalog + create/edit
+   267→
+   268→### 4.3 Cron Automation (Phase 3 dari Hermes) 🔴 NOT STARTED
+   269→
+   270→> **⚠️ SUGGESTION:** Node-cron dalam Next.js serverless ada limitation (cron restarts on cold start). Suggest guna **Vercel Cron Jobs** atau **external cron service** yang trigger API endpoint. Untuk dev/local, guna `node-cron` di mini-service.
+   271→
+   272→- [ ] Buat `src/lib/hermes-v2/cron-service.ts`:
+   273→  - [ ] `scheduleJob(config)` — parse natural language schedule
+   274→  - [ ] `activateJob(jobId)` — node-cron integration (local) / Vercel Cron (prod)
+   275→  - [ ] `executeJob(job)` — dengan skill loading + subagent delegation
+   276→  - [ ] `parseSchedule(nl)` — "every 2h" → cron expression
+   277→- [ ] Update Prisma schema — `HermesCronJob` model
+   278→- [ ] UI untuk cron management di Hermes Hub → "Automations" tab
+   279→- [ ] Pre-built cron jobs:
+   280→  - [ ] Shopee trending check (every 2h) → deliver to notifications
+   281→  - [ ] Daily earnings summary (9am MYT) → deliver to dashboard
+   282→  - [ ] Content generation reminder (3x daily) → deliver to toast
+   283→  - [ ] Weekly performance report (Monday 9am) → deliver to earnings page
+   284→
+   285→### 4.4 Subagent Delegation (Phase 4 dari Hermes) 🔴 NOT STARTED
+   286→
+   287→- [ ] Buat `src/lib/hermes-v2/delegation-service.ts`:
+   288→  - [ ] `delegateSingle(config)` — isolated context, run one task
+   289→  - [ ] `delegateBatch(tasks)` — up to 3 concurrent (Promise.allSettled)
+   290→  - [ ] `parallelProductResearch(products)` — parallel execution
+   291→- [ ] Update Prisma schema — `HermesSubagent` model (track status, result)
+   292→- [ ] UI: "Agents" tab di Hermes Hub showing active/completed subagents
+   293→- [ ] `/agents` command di chat untuk monitoring
+   294→
+   295→### 4.5 Tool Gateway (Phase 5 dari Hermes) 🟡 ADAPTED
+   296→
+   297→> **🔑 ADAPTATION:** Original plan suggests FAL.ai, OpenAI TTS, Browserbase. Kita **sudah ada** `z-ai-web-dev-sdk` yang support LLM, image gen, TTS, dan web search. Guna yang sedia ada sahaja.
+   298→
+   299→- [ ] Buat `src/lib/hermes-v2/tool-gateway.ts`:
+   300→  - [x] `webSearch(query)` — via z-ai-web-dev-sdk (web-search skill) ✅ AVAILABLE
+   301→  - [x] `generateImage(request)` — via z-ai-web-dev-sdk (image-generation skill) ✅ AVAILABLE
+   302→  - [x] `textToSpeech(text)` — via z-ai-web-dev-sdk (TTS skill) ✅ AVAILABLE
+   303→  - [ ] `readWebPage(url)` — via z-ai-web-dev-sdk (web-reader skill)
+   304→  - [ ] `videoUnderstanding(videoUrl)` — via z-ai-web-dev-sdk (video-understand skill)
+   305→- [ ] ~~Browser automation (Playwright/Browserbase)~~ ❌ DEFERRED — Shopee anti-bot too aggressive
+   306→- [ ] ~~Stealth browser layer~~ ❌ NOT SUITABLE — Legal/ToS concerns with scraping
+   307→
+   308→**Suggestion:** Untuk Shopee product data, guna **official Shopee Affiliate API** (already have `src/lib/shopee/affiliate-api.ts` mock) dengan fallback ke demo data. Jangan scrape — risiko ban tinggi.
+   309→
+   310→### 4.6 Computer-Use Agent 🔴 NOT STARTED (ADVANCED)
+   311→
+   312→> **⚠️ SUGGESTION:** Ini adalah feature paling complex (VLA loop: Screenshot → LLM → Action → Repeat). Suggest defer ke Phase 6+ selepas core Hermes v2 stable. Untuk sekarang, focus pada text-based agent sahaja.
+   313→
+   314→- [ ] ~~Split-screen Dashboard~~ → DEFERRED
+   315→- [ ] ~~Playwright browser controller~~ → DEFERRED
+   316→- [ ] ~~GPT-4o Vision integration~~ → Use z-ai-web-dev-sdk VLM instead
+   317→- [ ] ~~Real-time WebSocket sync~~ → Already have notification-service
+   318→
+   319→### 4.7 Messaging Gateway (Phase 6 dari Hermes) 🟡 PHASED
+   320→
+   321→> **⚠️ SUGGESTION:** Original plan suggests Telegram + WhatsApp + Discord + Slack + Email. Untuk Malaysian market, **Telegram adalah priority #1** (paling popular di kalangan affiliate marketers MY). Defer yang lain.
+   322→
+   323→- [ ] **Telegram Bot** (Phase 6a — Week 10):
+   324→  - [ ] Install `node-telegram-bot-api` atau `telegraf`
+   325→  - [ ] `/start` — welcome + menu
+   326→  - [ ] `/products [query]` — search trending products
+   327→  - [ ] `/content [product]` — generate social media content
+   328→  - [ ] `/earnings` — check earnings summary
+   329→  - [ ] `/trends` — trending categories
+   330→  - [ ] Natural language chat (delegate to HERMES)
+   331→  - [ ] Cron delivery (scheduled reports to Telegram)
+   332→- [ ] ~~WhatsApp Business API~~ → DEFERRED (requires Meta approval, complex)
+   333→- [ ] ~~Discord Bot~~ → DEFERRED (not primary market for MY affiliates)
+   334→- [ ] ~~Slack Bot~~ → DEFERRED (enterprise, not relevant)
+   335→- [ ] ~~Email~~ → DEFERRED (use existing notification system instead)
+   336→
+   337→---
+   338→
+   339→## 🎨 PHASE 5: POLISH & INFRASTRUCTURE (Week 10-13)
+   340→**Goal: 9.7 → 10.0 (+0.3)** | Effort: 30h
+   341→
+   342→### 5.1 Accessibility Audit 🔴 NOT STARTED
+   343→
+   344→- [ ] Semua `<img>` punya meaningful `alt` text
+   345→- [ ] Color contrast ratio ≥ 4.5:1 untuk semua text (use axe DevTools)
+   346→- [ ] Keyboard navigation (Tab, Enter, Escape) — partially done (command palette, shortcuts)
+   347→- [ ] ARIA labels untuk icon-only buttons — partially done
+   348→- [ ] Focus visible indicators (add `focus-visible:ring-2` to all buttons)
+   349→- [ ] Screen reader announcements (live regions for notifications)
+   350→- [x] `prefers-reduced-motion` support (partially done via Framer Motion config)
+   351→- [ ] Add skip-to-content link
+   352→- [ ] Add ARIA live regions untuk live notifications
+   353→
+   354→### 5.2 Database Migration 🟡 DEFERRED
+   355→
+   356→> **⚠️ SUGGESTION:** SQLite cukup untuk current single-user demo. PostgreSQL migration hanya perlu bila:
+   357→> - Multi-user concurrent (team collaboration feature aktif)
+   358→> - Data volume > 100K records
+   359→> - Multi-instance deployment (Vercel scaling)
+   360→> Suggest defer ke Phase 6+ atau bila user base grow.
+   361→
+   362→- [ ] ~~Migration guide: SQLite → PostgreSQL~~ → DEFERRED
+   363→- [ ] ~~Update Prisma datasource~~ → DEFERRED
+   364→- [ ] ~~Data migration script~~ → DEFERRED
+   365→- [ ] ~~Connection pooling (PgBouncer)~~ → DEFERRED
+   366→- [ ] Add Prisma schema untuk Hermes models (AgentMemory, HermesSkill, HermesCronJob, HermesSubagent) — Phase 4
+   367→
+   368→### 5.3 Error Monitoring 🟡 DEFERRED
+   369→
+   370→> **⚠️ SUGGESTION:** Sentry free tier terhad (5K errors/month). Untuk sekarang, `logger.error` + error boundaries cukup. Add Sentry bila production traffic meningkat.
+   371→
+   372→- [ ] ~~Install `@sentry/nextjs`~~ → DEFERRED
+   373→- [ ] ~~Setup Sentry DSN~~ → DEFERRED
+   374→- [x] Configure error boundaries (already have Global + per-page)
+   375→- [ ] Add custom error page (`src/app/error.tsx`) dengan error ID
+   376→- [ ] Performance monitoring (Web Vitals) — use Vercel Analytics instead
+   377→
+   378→### 5.4 CI/CD Pipeline 🔴 NOT STARTED
+   379→
+   380→- [ ] GitHub Actions workflow:
+   381→  - [ ] `.github/workflows/ci.yml`
+   382→  - [ ] Run lint on PR
+   383→  - [ ] Run tests on PR (`bun run test`)
+   384→  - [ ] Run TypeScript check (`bunx tsc --noEmit`)
+   385→  - [ ] Run build on PR
+   386→  - [ ] Generate coverage report
+   387→- [ ] Branch protection rules (require PR review + CI pass)
+   388→- [ ] PR template (`.github/pull_request_template.md`)
+   389→- [ ] Pre-commit hooks (husky + lint-staged)
+   390→
+   391→### 5.5 Analytics 🔴 NOT STARTED
+   392→
+   393→- [ ] Vercel Analytics (built-in — just enable)
+   394→- [ ] ~~Google Analytics 4~~ → OPTIONAL (privacy concerns, use Vercel instead)
+   395→- [ ] Custom event tracking:
+   396→  - [ ] Page navigation (Zustand store → analytics)
+   397→  - [ ] Command palette usage
+   398→  - [ ] Feature discovery (changelog views)
+   399→  - [ ] AI feature usage (hermes chat, content gen, thumbnails, voiceover)
+   400→
+   401→### 5.6 Documentation ✅ PARTIAL
+   402→
+   403→- [x] README.md — features, quick start, architecture, config, testing
+   404→- [x] CONTRIBUTING.md — code standards, TypeScript rules, logging, testing, git workflow
+   405→- [x] `.env.example` — all env vars documented
+   406→- [ ] API docs (OpenAPI/Swagger) — Phase 3.5
+   407→- [ ] Deployment guide (Vercel + Docker)
+   408→- [ ] Environment variable documentation (detailed)
+   409→- [ ] Architecture decision records (ADR)
+   410→- [ ] Changelog (VERSIONED.md)
+   411→
+   412→---
+   413→
+   414→## 💡 MY SUGGESTIONS & CAVEATS
+   415→
+   416→### 1. Server Component Migration — HYBRID Approach
+   417→**Original:** Full Server Component migration untuk semua pages
+   418→**Suggestion:** App kita guna Zustand SPA routing. Full migration akan break:
+   419→- Instant page transitions (Framer Motion)
+   420→- Command palette (needs client state)
+   421→- Keyboard navigation (needs client event listeners)
+   422→- Live notifications (needs client WebSocket)
+   423→
+   424→**Recommendation:** Keep pages as Client Components. Hanya jadikan LandingPage dan static content sebagai Server Components.
+   425→
+   426→### 2. External AI Services — Use z-ai-web-dev-sdk
+   427→**Original:** FAL.ai (images), OpenAI TTS, Browserbase
+   428→**Suggestion:** Kita sudah ada `z-ai-web-dev-sdk` yang support:
+   429→- LLM chat (HERMES)
+   430→- Image generation (AI Thumbnails) ✅
+   431→- TTS (AI Voiceover) ✅
+   432→- Web search
+   433→- Web page reading
+   434→- Video understanding
+   435→
+   436→**Recommendation:** Guna z-ai-web-dev-sdk untuk semua AI capabilities. Hanya tambah external service bila z-ai-web-dev-sdk tak support.
+   437→
+   438→### 3. PostgreSQL Migration — DEFER
+   439→**Original:** Migrate SQLite → PostgreSQL
+   440→**Suggestion:** SQLite cukup untuk:
+   441→- Single-user demo
+   442→- Development environment
+   443→- Small team (< 10 users)
+   444→
+   445→**Recommendation:** Defer ke Phase 6+ atau bila:
+   446→- Multi-user concurrent aktif
+   447→- Data volume > 100K records
+   448→- Multi-instance deployment diperlukan
+   449→
+   450→### 4. Browser Automation/Scraping — AVOID
+   451→**Original:** Stealth browser layer dengan Playwright, proxy rotation, spoofed navigator
+   452→**Suggestion:** Shopee anti-bot detection sangat aggressive. Scraping boleh sebabkan:
+   453→- IP ban
+   454→- Account suspension
+   455→- Legal/ToS violation
+   456→
+   457→**Recommendation:** Guna **official Shopee Affiliate API** sahaja (already ada `src/lib/shopee/affiliate-api.ts`). Fallback ke demo data bila API unavailable. Jangan scrape.
+   458→
+   459→### 5. Messaging Gateway — Telegram First
+   460→**Original:** Telegram + WhatsApp + Discord + Slack + Email
+   461→**Suggestion:** Untuk Malaysian affiliate market:
+   462→- **Telegram** = priority #1 (paling popular di MY)
+   463→- WhatsApp = perlu Meta Business approval (complex)
+   464→- Discord = bukan primary market untuk MY affiliates
+   465→- Slack = enterprise, tak relevant
+   466→- Email = guna existing notification system
+   467→
+   468→**Recommendation:** Implement Telegram bot sahaja dulu (Phase 6a). Defer yang lain.
+   469→
+   470→### 6. Computer-Use Agent — DEFER
+   471→**Original:** Split-screen VLA loop dengan Playwright + GPT-4o Vision
+   472→**Suggestion:** Ini feature paling complex (80h+ effort). Untuk sekarang, text-based agent (HERMES chat) dah cukup powerful.
+   473→
+   474→**Recommendation:** Defer ke Phase 6+ atau bila core Hermes v2 (Memory + Skills + Cron + Delegation) dah stable.
+   475→
+   476→### 7. Sentry — DEFER
+   477→**Original:** Install Sentry untuk error monitoring
+   478→**Suggestion:** Sentry free tier terhad (5K errors/month). Kita sudah ada:
+   479→- Structured logger (`src/lib/logger.ts`)
+   480→- Error boundaries (Global + per-page)
+   481→- `handleApiError()` helper
+   482→
+   483→**Recommendation:** Defer Sentry ke bila production traffic meningkat. Untuk sekarang, logger + error boundaries cukup.
+   484→
+   485→### 8. Page Component Refactoring — PRIORITIZE
+   486→**Original:** Refactor page components > 1000 baris
+   487→**Suggestion:** Local codebase kita tak ada page > 500 baris (most are 200-400). Tapi kalau future pages grow besar, refactor ke sub-components.
+   488→
+   489→**Recommendation:** Tambah rule di CONTRIBUTING.md: "Page components should be < 500 lines. Extract sub-components untuk complex sections."
+   490→
+   491→---
+   492→
+   493→## 📅 WEEKLY TIMELINE (Revised)
+   494→
+   495→```
+   496→Week  1: Phase 1.1 (fix remaining any types) + 2.2 (remaining unit tests)
+   497→Week  2: Phase 2.3 (component tests) + 2.4 (API route tests)
+   498→Week  3: Phase 2.5 (integration tests) + 2.6 (coverage 50%)
+   499→Week  4: Phase 3.1 (hybrid server components) + 3.3 (bundle optimization)
+   500→Week  5: Phase 3.4 (image optimization) + 3.5 (OpenAPI docs)
+   501→Week  6: Phase 4.1 (Memory System) + Prisma schema update
+   502→Week  7: Phase 4.2 (Skills System v2) + affiliate skills
+   503→Week  8: Phase 4.3 (Cron Automation) + pre-built jobs
+   504→Week  9: Phase 4.4 (Subagent Delegation) + 4.5 (Tool Gateway)
+   505→Week 10: Phase 4.7a (Telegram Bot) + 5.1 (Accessibility)
+   506→Week 11: Phase 5.4 (CI/CD) + 5.5 (Analytics)
+   507→Week 12: Phase 5.6 (Documentation) + polish
+   508→Week 13: Buffer + final QA + deployment prep
+   509→```
+   510→
+   511→---
+   512→
+   513→## 📊 MASTER CHECKLIST STATUS
+   514→
+   515→| Phase | Total Tasks | Completed | In Progress | Remaining | Progress |
+   516→|-------|-------------|-----------|-------------|-----------|----------|
+   517→| Phase 0: P0 Fixes | 7 | 7 | 0 | 0 | ✅ 100% |
+   518→| Phase 1: Code Quality | 15 | 11 | 2 | 2 | 🟡 73% |
+   519→| Phase 2: Testing | 23 | 8 | 0 | 15 | 🟡 35% |
+   520→| Phase 3: Performance | 15 | 4 | 1 | 10 | 🟡 27% |
+   521→| Phase 4: HERMES v2.0 | 30 | 0 | 0 | 30 | 🔴 0% |
+   522→| Phase 5: Polish | 18 | 4 | 2 | 12 | 🟡 22% |
+   523→| **TOTAL** | **108** | **34** | **5** | **69** | **🟡 35%** |
+   524→
+   525→> **Note:** Total tasks dikurangkan dari 142 (master plan) ke 108 selepas remove duplicates dan mark yang tak applicable ke local codebase.
+   526→
+   527→---
+   528→
+   529→## 🛠️ TECH STACK SUMMARY
+   530→
+   531→| Layer | Technology | Version | Status |
+   532→|-------|-----------|---------|--------|
+   533→| Framework | Next.js | 16.1.1 | ✅ |
+   534→| Language | TypeScript | 5.x | ✅ (strict mode ON) |
+   535→| UI | React | 19.0.0 | ✅ |
+   536→| Styling | Tailwind CSS | 4.x | ✅ (CSS-first config) |
+   537→| Components | shadcn/ui | latest | ✅ |
+   538→| Database | Prisma + SQLite | 6.11.1 | 🟡 → PostgreSQL (deferred) |
+   539→| Auth | NextAuth.js | 4.24.11 | ✅ |
+   540→| State | Zustand | 5.0.6 | ✅ |
+   541→| Query | TanStack Query | 5.82.0 | ✅ |
+   542→| Animation | Framer Motion | 12.23.2 | ✅ |
+   543→| Charts | Recharts | 2.15.4 | ✅ |
+   544→| **Testing** | **Vitest** | **4.1.9** | **✅ NEW** |
+   545→| **Validation** | **Zod** | **4.x** | **✅ NEW** |
+   546→| **Logging** | **Custom Logger** | **1.0** | **✅ NEW** |
+   547→| **Rate Limiting** | **Custom Token Bucket** | **1.0** | **✅ NEW** |
+   548→| AI | z-ai-web-dev-sdk | 0.0.18 | ✅ (4 AI routes) |
+   549→| Real-time | Socket.io | 4.8.3 | ✅ (notification-service) |
+   550→| Confetti | canvas-confetti | 1.9.4 | ✅ NEW |
+   551→| ~~Monitoring~~ | ~~Sentry~~ | — | ❌ DEFERRED |
+   552→| ~~Browser~~ | ~~Playwright~~ | — | ❌ DEFERRED |
+   553→
+   554→---
+   555→
+   556→## 🎯 KEY METRICS TO TRACK
+   557→
+   558→| Metric | Current | Target | How to Measure |
+   559→|--------|---------|--------|----------------|
+   560→| Code Coverage | ~20% | 70%+ | `bun run test:coverage` |
+   561→| TypeScript Errors | 0 in src/ | 0 | `bunx tsc --noEmit` |
+   562→| ESLint Warnings | 107 | <20 | `bun run lint` |
+   563→| `any` Types | ~107 | <20 | grep `: any` in src/ |
+   564→| Lighthouse Score | ? | >90 | Chrome DevTools |
+   565→| Bundle Size | ? | <500KB initial | `next bundle-analyzer` |
+   566→| API Response Time | <10ms | <200ms p95 | Vercel Analytics |
+   567→| Test Pass Rate | 100% (121/121) | >95% | `bun run test` |
+   568→| Unit Tests | 121 | 300+ | `bun run test` |
+   569→
+   570→---
+   571→
+   572→## 🔄 IMPLEMENTATION PRIORITY MATRIX
+   573→
+   574→### 🔴 P0 — Critical (Do First)
+   575→1. ~~Fix ESLint config~~ ✅
+   576→2. ~~Fix TypeScript config~~ ✅
+   577→3. ~~Create logger~~ ✅
+   578→4. ~~Create Zod validation~~ ✅
+   579→5. ~~Create env validation~~ ✅
+   580→6. ~~Setup Vitest~~ ✅
+   581→7. ~~Create rate limiting~~ ✅
+   582→
+   583→### 🟡 P1 — High Priority (Next 2 Weeks)
+   584→8. Fix remaining `any` types in page components
+   585→9. Write component tests (button, command palette, sidebar, header)
+   586→10. Write API route tests (8 routes)
+   587→11. Bundle optimization (lazy load recharts, framer-motion)
+   588→12. Image optimization (Next.js Image component)
+   589→
+   590→### 🟢 P2 — Medium Priority (Week 3-6)
+   591→13. Integration tests (dashboard, products, command palette, live notifications)
+   592→14. OpenAPI documentation
+   593→15. HERMES Memory System (Phase 4.1)
+   594→16. HERMES Skills System v2 (Phase 4.2)
+   595→17. Accessibility audit
+   596→
+   597→### 🔵 P3 — Lower Priority (Week 7+)
+   598→18. HERMES Cron Automation (Phase 4.3)
+   599→19. HERMES Subagent Delegation (Phase 4.4)
+   600→20. HERMES Tool Gateway (Phase 4.5)
+   601→21. Telegram Bot (Phase 4.7a)
+   602→22. CI/CD Pipeline
+   603→23. Analytics
+   604→
+   605→### ⚪ P4 — Deferred (When Needed)
+   606→24. PostgreSQL migration
+   607→25. Sentry error monitoring
+   608→26. Computer-Use Agent (VLA loop)
+   609→27. WhatsApp/Discord/Slack bots
+   610→28. Browser automation/scraping
+   611→
+   612→---
+   613→
+   614→## 📝 CONCLUSION
+   615→
+   616→Plan ini menggabungkan 3 dokumen:
+   617→1. **Code Review** — 10 kriteria, score 6.0 → target 10.0
+   618→2. **Hermes Agent Integration** — 6 fasa, 132h, transform HERMES ke autonomous agent
+   619→3. **Master Plan** — 142 tasks, 5 fasa, 260h
+   620→
+   621→**Selepas merge & filter:**
+   622→- 108 total tasks (34 completed, 5 in progress, 69 remaining)
+   623→- ~200h remaining effort (10 weeks)
+   624→- 8 suggestions untuk adaptasi (defer/avoid yang tak sesuai)
+   625→
+   626→**Key principles:**
+   627→- ✅ NEVER remove existing features — add-on & upgrade only
+   628→- ✅ Use z-ai-web-dev-sdk for AI (already integrated)
+   629→- ✅ Use official APIs, not scraping
+   630→- ✅ Telegram first for messaging (Malaysian market)
+   631→- ✅ SQLite for now, PostgreSQL when needed
+   632→- ✅ Logger + error boundaries, Sentry when scaling
+   633→- ✅ Hybrid Server Components (don't break SPA)
+   634→
+   635→**Dengan implementation plan ini, TheViralFindsMY akan mencapai score 10.0/10 dalam 10 minggu.** 🚀
+   636→
+   637→---
+   638→
+   639→*This implementation plan is a living document. Update checklist status as tasks are completed. Review weekly on Monday mornings.*
+   640→

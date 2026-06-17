@@ -16,7 +16,27 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
-import type { PageCategory } from '@/lib/types'
+import type { PageCategory, PageId, SearchResultItem } from '@/lib/types'
+
+/**
+ * A single row rendered inside the command palette. The palette merges pages,
+ * quick actions, and global content search results into one heterogeneous list,
+ * so all optional fields are tolerated. The discriminated `type` field drives
+ * the icon background and selection behaviour.
+ */
+type CommandPaletteItem = {
+  type: 'page' | 'action' | 'content'
+  id: string
+  label: string
+  desc: string
+  icon: Icons.LucideIcon
+  badge?: string
+  page?: PageId
+  recent?: boolean
+  frequent?: boolean
+  contentType?: string
+  category?: string
+}
 
 const categoryLabels: Record<Exclude<PageCategory, 'pinned'>, string> = {
   core: 'Core',
@@ -99,7 +119,7 @@ export function CommandPalette() {
   }, [query])
 
   // Global content search (products, links, campaigns) — debounced
-  const [contentResults, setContentResults] = useState<any[]>([])
+  const [contentResults, setContentResults] = useState<SearchResultItem[]>([])
   const [searchingContent, setSearchingContent] = useState(false)
 
   useEffect(() => {
@@ -124,9 +144,9 @@ export function CommandPalette() {
     return () => clearTimeout(t)
   }, [query])
 
-  const handleSelect = useCallback((item: any) => {
+  const handleSelect = useCallback((item: CommandPaletteItem) => {
     if (item.type === 'page') {
-      setActivePage(item.page)
+      if (item.page) setActivePage(item.page)
       toast.success(`Navigated to ${item.label}`)
     } else if (item.id === 'toggle-theme') {
       setTheme(theme === 'dark' ? 'light' : 'dark')
@@ -320,7 +340,7 @@ export function CommandPalette() {
                 <p className="text-xs text-muted-foreground">Try a different search term</p>
               </div>
             )}
-            {displayItems.map((item: any, idx: number) => {
+            {displayItems.map((item: CommandPaletteItem, idx: number) => {
               const isActive = idx === activeIndex
               const isRecent = item.recent && !results
               const isFrequent = item.frequent && !results

@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PageHeader, SectionCard } from './_shared'
+import { SmartImage } from '@/components/ui/smart-image'
 import { demoProducts } from '@/lib/demo-data'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -341,9 +342,12 @@ export function AiThumbnailsPage() {
                     )}
                   >
                     <div className="relative aspect-square bg-muted">
-                      <img
+                      <SmartImage
                         src={t.image}
                         alt={`AI-generated thumbnail for ${product} — ${t.variationLabel}`}
+                        width={1024}
+                        height={1024}
+                        priority={idx === 0}
                         className="size-full object-cover"
                       />
                       <Badge className="absolute left-2 top-2 bg-hermes/90 text-white backdrop-blur text-[10px]">

@@ -8,6 +8,7 @@ import type {
   EarningPoint,
   Activity,
   NavItem,
+  CategoryTrend,
 } from './types'
 
 // Malaysian market demo products
@@ -107,19 +108,19 @@ export const demoTrends: TrendProduct[] = [
   { id: 't8', name: 'Anker Power Bank 20000mAh', category: 'Electronics', velocity: 58, status: 'hot', competitors: 167, avgCommission: 7, trendScore: 70 },
 ]
 
-export const categoryTrends = [
-  { name: 'Electronics', emoji: '📱', velocity: 78, status: 'hot' as const, products: 342 },
-  { name: 'Beauty', emoji: '💄', velocity: 64, status: 'hot' as const, products: 289 },
-  { name: 'Fashion', emoji: '👗', velocity: 92, status: 'hot' as const, products: 456 },
-  { name: 'Home', emoji: '🏠', velocity: 55, status: 'hot' as const, products: 234 },
-  { name: 'Food', emoji: '🍜', velocity: 67, status: 'hot' as const, products: 178 },
-  { name: 'Baby', emoji: '🍼', velocity: 47, status: 'hot' as const, products: 134 },
-  { name: 'Sports', emoji: '⚽', velocity: 38, status: 'warm' as const, products: 98 },
-  { name: 'Gaming', emoji: '🎮', velocity: 71, status: 'hot' as const, products: 167 },
-  { name: 'Auto', emoji: '🚗', velocity: 51, status: 'hot' as const, products: 87 },
-  { name: 'Books', emoji: '📚', velocity: 33, status: 'warm' as const, products: 65 },
-  { name: 'Health', emoji: '💊', velocity: 58, status: 'hot' as const, products: 145 },
-  { name: 'Pets', emoji: '🐾', velocity: 49, status: 'hot' as const, products: 112 },
+export const categoryTrends: CategoryTrend[] = [
+  { name: 'Electronics', emoji: '📱', velocity: 78, status: 'hot', products: 342 },
+  { name: 'Beauty', emoji: '💄', velocity: 64, status: 'hot', products: 289 },
+  { name: 'Fashion', emoji: '👗', velocity: 92, status: 'hot', products: 456 },
+  { name: 'Home', emoji: '🏠', velocity: 55, status: 'hot', products: 234 },
+  { name: 'Food', emoji: '🍜', velocity: 67, status: 'hot', products: 178 },
+  { name: 'Baby', emoji: '🍼', velocity: 47, status: 'hot', products: 134 },
+  { name: 'Sports', emoji: '⚽', velocity: 38, status: 'warm', products: 98 },
+  { name: 'Gaming', emoji: '🎮', velocity: 71, status: 'hot', products: 167 },
+  { name: 'Auto', emoji: '🚗', velocity: 51, status: 'hot', products: 87 },
+  { name: 'Books', emoji: '📚', velocity: 33, status: 'warm', products: 65 },
+  { name: 'Health', emoji: '💊', velocity: 58, status: 'hot', products: 145 },
+  { name: 'Pets', emoji: '🐾', velocity: 49, status: 'hot', products: 112 },
 ]
 
 // Earnings chart data - last 30 days

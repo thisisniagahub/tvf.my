@@ -3,13 +3,22 @@
  * Generates a pleasant chime for sale notifications.
  */
 
+// Safari exposes the AudioContext constructor under a vendor-prefixed name.
+// We type the window object accordingly so we can fall back to it safely.
+interface WindowWithWebkitAudio extends Window {
+  webkitAudioContext?: typeof AudioContext
+}
+
 let audioContext: AudioContext | null = null
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null
   if (!audioContext) {
     try {
-      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const w = window as WindowWithWebkitAudio
+      const Ctor = window.AudioContext ?? w.webkitAudioContext
+      if (!Ctor) return null
+      audioContext = new Ctor()
     } catch {
       return null
     }

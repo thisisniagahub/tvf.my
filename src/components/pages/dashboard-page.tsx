@@ -13,6 +13,7 @@ import { PageHeader, StatCard } from './_shared'
 import { useLiveNotifications } from '@/hooks/use-live-notifications'
 import { cn } from '@/lib/utils'
 import { formatRM, formatNumber } from '@/lib/demo-data'
+import type { DashboardStats, DashboardActivity } from '@/lib/types'
 import {
   AreaChart,
   Area,
@@ -55,12 +56,12 @@ export function DashboardPage() {
   const greeting = hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening'
   const { events: liveEvents, connected } = useLiveNotifications(true)
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
       const res = await fetch('/api/dashboard')
       if (!res.ok) throw new Error('Failed')
-      return res.json()
+      return res.json() as Promise<DashboardStats>
     },
   })
 
@@ -68,8 +69,8 @@ export function DashboardPage() {
   const topProducts = stats?.topProducts ?? []
 
   // Merge live events with demo activities — live events appear at the top
-  const activities = useMemo(() => {
-    const liveMapped = liveEvents.slice(0, 6).map((e) => ({
+  const activities = useMemo<DashboardActivity[]>(() => {
+    const liveMapped: DashboardActivity[] = liveEvents.slice(0, 6).map((e) => ({
       id: e.id,
       type: e.type === 'xtra' ? 'commission' : (e.type === 'trend' ? 'alert' : e.type),
       message: e.title.replace(/[🎉🔥⭐]/g, '').trim() + ' — ' + e.message,
@@ -77,7 +78,7 @@ export function DashboardPage() {
       timestamp: 'just now',
       live: true,
     }))
-    const demo = (stats?.activities ?? []).map((a: any) => ({ ...a, live: false }))
+    const demo: DashboardActivity[] = (stats?.activities ?? []).map((a) => ({ ...a, live: false }))
     return [...liveMapped, ...demo]
   }, [liveEvents, stats?.activities])
 
@@ -237,8 +238,19 @@ export function DashboardPage() {
           </div>
           <CardContent className="p-0">
             <div className="divide-y">
-              {topProducts.slice(0, 5).map((p: any, i: number) => (
+              {topProducts.slice(0, 5).map((p, i: number) => (
                 <div key={p.id} className="flex items-center gap-3 p-3 hover:bg-accent/40">
+                  {/* Rank badge placeholder — when real product images are wired
+                      up, this could become a small product thumbnail:
+                      <SmartImage
+                        src={p.image}
+                        alt={p.name}
+                        width={32}
+                        height={32}
+                        className="size-8 shrink-0 rounded-lg object-cover"
+                      />
+                      See `images.remotePatterns` in next.config.ts for the
+                      allowed Shopee CDN hosts. */}
                   <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground">
                     #{i + 1}
                   </div>
@@ -288,7 +300,7 @@ export function DashboardPage() {
             <ScrollArea className="h-[280px]">
               <div className="divide-y">
                 <AnimatePresence initial={false}>
-                  {activities.map((a: any) => (
+                  {activities.map((a) => (
                     <motion.div
                       key={a.id}
                       layout

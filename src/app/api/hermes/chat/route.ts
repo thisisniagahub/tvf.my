@@ -3,12 +3,18 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger, handleApiError } from '@/lib/logger'
 import { validateInput, hermesChatSchema } from '@/lib/validation'
 import type { ChatMessage } from '@/lib/types'
+import { memoryService } from '@/lib/hermes-v2/memory-service'
+import { skillsEngine } from '@/lib/hermes-v2/skills-engine'
 
 /** Shape of an inbound HERMES chat request body. */
 interface HermesChatRequestBody {
   message: string
   history?: Pick<ChatMessage, 'role' | 'content'>[]
+  /** Optional user id; defaults to the demo account. */
+  userId?: string
 }
+
+const DEFAULT_USER_ID = 'demo-user'
 
 const SYSTEM_PROMPT = `You are HERMES, an AI assistant for TheViralFindsMY — an AI-powered affiliate marketing platform built exclusively for the Malaysian Shopee affiliate market.
 
@@ -45,6 +51,113 @@ function getFallbackResponse(message: string): string {
   return `Great question! Based on your affiliate data, here are your top 5 performing products this month:\n\n1. **RGB Mechanical Keyboard** — 342 clicks, 89 orders, 26% CVR\n2. **Tudung Bawal Premium** — 289 clicks, 102 orders, 35.3% CVR ⭐\n3. **Portable Blender USB** — 256 clicks, 78 orders, 30.5% CVR\n4. **Wardah Lipstick** — 312 clicks, 98 orders, 31.4% CVR\n5. **Safi Balqis Sunblock** — 278 clicks, 67 orders, 24.1% CVR\n\nYour conversion rates are above the Shopee affiliate average of 8.5%. I recommend focusing more on the Portable Blender USB as it has the highest conversion potential.\n\nWhat would you like to dive deeper into? I can help with trends, content, optimization, or earnings analysis.`
 }
 
+/**
+ * Heuristic: extract a user-profile interest from a free-text message.
+ * Looks for "I like X", "I focus on X", "interested in X", "my niche is X"
+ * patterns and returns a short profile note (or null when no clear signal).
+ *
+ * This is intentionally conservative — only fires on explicit first-person
+ * interest statements so we don't pollute the profile with every message.
+ */
+function extractInterest(message: string): string | null {
+  const lower = message.toLowerCase()
+  const patterns = [
+    /\bi\s+(?:like|love|prefer|focus\s+on|specialize\s+in)\s+([a-z0-9 ,]{3,60})/i,
+    /\binterested\s+in\s+([a-z0-9 ,]{3,60})/i,
+    /\bmy\s+niche\s+is\s+([a-z0-9 ,]{3,60})/i,
+    /\bi\s+sell\s+([a-z0-9 ,]{3,60})/i,
+    /\bi\s+promote\s+([a-z0-9 ,]{3,60})/i,
+  ]
+  for (const p of patterns) {
+    const m = lower.match(p)
+    if (m && m[1]) {
+      const interest = m[1].trim().replace(/\s+/g, ' ')
+      // Filter out trailing punctuation / stop-words
+      const cleaned = interest.replace(/[.,!?]+$/, '').trim()
+      if (cleaned.length >= 3 && cleaned.length <= 60) {
+        return `Interested in: ${cleaned}`
+      }
+    }
+  }
+  return null
+}
+
+/** Categorize the question for the agent-memory note (best-effort). */
+function categorizeQuestion(message: string): string {
+  const lower = message.toLowerCase()
+  if (lower.match(/trend|hot|viral|velocity/)) return 'trend-analysis'
+  if (lower.match(/caption|content|script|post|generate|write/)) return 'content-generation'
+  if (lower.match(/product|research|discover|find/)) return 'product-research'
+  if (lower.match(/manglish|malay|bahasa|rojak/)) return 'manglish-style'
+  if (lower.match(/commission|earn|xtra|revenue/)) return 'earnings'
+  if (lower.match(/conversion|optimize|improve/)) return 'optimization'
+  return 'general'
+}
+
+/**
+ * Persist a memory note + update skill-usage stats. All operations are
+ * best-effort: any failure is logged at warn level and swallowed so the
+ * chat response is never blocked by a memory-write problem.
+ */
+async function persistPostChat(
+  userId: string,
+  message: string,
+  response: string,
+  source: 'ai' | 'fallback',
+  skillIds: string[]
+): Promise<void> {
+  const tasks: Promise<unknown>[] = []
+
+  // 1. Save a brief agent-memory note about what was discussed.
+  const category = categorizeQuestion(message)
+  const truncated = message.length > 120 ? message.slice(0, 117) + '...' : message
+  tasks.push(
+    memoryService
+      .addMemory(userId, 'agent', `Discussed ${category}: "${truncated}" (${source})`, [
+        category,
+        source,
+      ])
+      .catch((err: unknown) =>
+        logger.warn('Failed to persist agent memory', {
+          error: err instanceof Error ? err.message : 'unknown',
+        })
+      )
+  )
+
+  // 2. If the user expressed an explicit interest, save it to the user profile.
+  const interest = extractInterest(message)
+  if (interest) {
+    tasks.push(
+      memoryService
+        .addMemory(userId, 'user', interest, ['interest'])
+        .catch((err: unknown) =>
+          logger.warn('Failed to persist user profile interest', {
+            error: err instanceof Error ? err.message : 'unknown',
+          })
+        )
+    )
+  }
+
+  // 3. Update usage stats for every detected skill. We treat the call as
+  //    "successful" when the AI returned a non-empty response; fallback
+  //    responses count as failure (the skill didn't actually help).
+  const success = source === 'ai' && response.length > 0
+  for (const id of skillIds) {
+    tasks.push(
+      skillsEngine
+        .updateSkillUsage(id, success)
+        .catch((err: unknown) =>
+          logger.warn('Failed to update skill usage', {
+            skillId: id,
+            error: err instanceof Error ? err.message : 'unknown',
+          })
+        )
+    )
+  }
+
+  await Promise.all(tasks)
+}
+
 export async function POST(request: NextRequest) {
   const limited = applyRateLimit(request, RATE_LIMITS.ai, 'hermes-chat')
   if (limited) return limited
@@ -56,6 +169,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validation.error }, { status: validation.status })
     }
     const { message, history } = validation.data
+    const userId =
+      (body as HermesChatRequestBody).userId?.trim() || DEFAULT_USER_ID
+
+    // ============== Pre-AI: build memory + skills context ==============
+    // Both calls are best-effort — a failure here should not block the
+    // chat; we just fall back to the bare system prompt.
+    let memoryContext = ''
+    let skillsContext = ''
+    let detectedSkillIds: string[] = []
+    try {
+      ;[memoryContext, skillsContext, detectedSkillIds] = await Promise.all([
+        memoryService.buildMemoryContext(userId),
+        skillsEngine.buildSkillsContext(message),
+        skillsEngine.detectSkillIds(message),
+      ])
+    } catch (ctxErr) {
+      logger.warn('Failed to build HERMES context (memory/skills)', {
+        userId,
+        error: ctxErr instanceof Error ? ctxErr.message : 'unknown',
+      })
+    }
+
+    const fullSystemPrompt =
+      SYSTEM_PROMPT + memoryContext + skillsContext
 
     // Try real AI
     try {
@@ -66,7 +203,7 @@ export async function POST(request: NextRequest) {
         role: 'system' | 'user' | 'assistant'
         content: string
       }> = [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: fullSystemPrompt },
         ...(history ?? []).map((m) => ({
           role: m.role,
           content: m.content,
@@ -81,15 +218,49 @@ export async function POST(request: NextRequest) {
 
       const response =
         completion.choices[0]?.message?.content || getFallbackResponse(message)
+      const source: 'ai' | 'fallback' =
+        completion.choices[0]?.message?.content ? 'ai' : 'fallback'
 
-      return NextResponse.json({ response, source: 'ai' })
+      // Persist memory + skill usage in the background. Await so we know
+      // it landed before the response leaves the server, but swallow errors.
+      await persistPostChat(userId, message, response, source, detectedSkillIds)
+
+      if (detectedSkillIds.length > 0) {
+        logger.info('HERMES chat used skills', {
+          userId,
+          skillIds: detectedSkillIds,
+          source,
+        })
+      }
+
+      return NextResponse.json({
+        response,
+        source,
+        meta: {
+          memoryUsed: memoryContext.length > 0,
+          skillsUsed: detectedSkillIds,
+        },
+      })
     } catch (aiError) {
       logger.warn('Hermes AI unavailable, using fallback response', {
         error: aiError instanceof Error ? aiError.message : 'unknown',
       })
+      const fallback = getFallbackResponse(message)
+      // Persist memory even on fallback so we still track what was asked.
+      await persistPostChat(
+        userId,
+        message,
+        fallback,
+        'fallback',
+        detectedSkillIds
+      )
       return NextResponse.json({
-        response: getFallbackResponse(message),
+        response: fallback,
         source: 'fallback',
+        meta: {
+          memoryUsed: memoryContext.length > 0,
+          skillsUsed: detectedSkillIds,
+        },
       })
     }
   } catch (error) {

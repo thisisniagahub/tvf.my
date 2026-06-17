@@ -21,6 +21,7 @@ import { PageHeader, StatCard, ProductGridSkeleton } from './_shared'
 import { formatRM, formatNumber } from '@/lib/demo-data'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import type { Product, ProductsResponse } from '@/lib/types'
 
 const categories = ['All', 'Electronics', 'Beauty', 'Fashion', 'Home', 'Gaming']
 
@@ -28,9 +29,9 @@ export function ProductsPage() {
   const { setActivePage } = useAppStore()
   const [category, setCategory] = useState('All')
   const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<any>(null)
+  const [selected, setSelected] = useState<Product | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<ProductsResponse>({
     queryKey: ['products', category, search],
     queryFn: async () => {
       const params = new URLSearchParams()
@@ -38,7 +39,7 @@ export function ProductsPage() {
       if (search) params.set('q', search)
       const res = await fetch(`/api/products?${params}`)
       if (!res.ok) throw new Error('Failed')
-      return res.json()
+      return res.json() as Promise<ProductsResponse>
     },
   })
 
@@ -92,7 +93,7 @@ export function ProductsPage() {
         <ProductGridSkeleton count={8} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {products.map((p: any, index: number) => (
+          {products.map((p, index: number) => (
             <motion.div
               key={p.id}
               initial={{ opacity: 0, y: 16 }}
@@ -105,6 +106,18 @@ export function ProductsPage() {
               onClick={() => setSelected(p)}
             >
               <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-muted/50 to-muted">
+                {/* Placeholder icon — when real product images are wired up, replace
+                    this block with a `<SmartImage>` (or `next/image` `<Image>`):
+                    <SmartImage
+                      src={p.image}
+                      alt={p.name}
+                      width={400}
+                      height={400}
+                      priority={index < 4}
+                      className="size-full object-cover"
+                    />
+                    The `images.remotePatterns` config in next.config.ts already
+                    allows `**.shopee.com` / `**.shopee.com.my` CDN hosts. */}
                 <div className="flex h-full items-center justify-center">
                   <Icons.Package className="size-16 text-muted-foreground/30" />
                 </div>
@@ -172,6 +185,16 @@ export function ProductsPage() {
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 sm:grid-cols-2">
+                {/* Placeholder icon — when real product images are wired up,
+                    replace this block with a `<SmartImage>` (or `next/image`
+                    `<Image>`):
+                    <SmartImage
+                      src={selected.image}
+                      alt={selected.name}
+                      width={500}
+                      height={500}
+                      className="size-full rounded-lg object-cover"
+                    /> */}
                 <div className="aspect-square rounded-lg bg-gradient-to-br from-muted/50 to-muted">
                   <div className="flex h-full items-center justify-center">
                     <Icons.Package className="size-20 text-muted-foreground/30" />

@@ -162,3 +162,77 @@ export interface NavItem {
   badge?: string
   category: PageCategory
 }
+
+/**
+ * A category trend row used by Trend Spy's heatmap and the trends API.
+ */
+export interface CategoryTrend {
+  name: string
+  emoji: string
+  velocity: number
+  status: 'hot' | 'warm'
+  products: number
+}
+
+/**
+ * Response shape of GET /api/products.
+ */
+export interface ProductsResponse {
+  products: Product[]
+  source: string
+  count: number
+}
+
+/**
+ * Response shape of GET /api/trends.
+ */
+export interface TrendsResponse {
+  categories: CategoryTrend[]
+  trends: TrendProduct[]
+  lastUpdated: string
+  source: string
+}
+
+/**
+ * Response shape of GET /api/dashboard.
+ */
+export interface DashboardStats {
+  earnings: EarningPoint[]
+  activities: Activity[]
+  topProducts: Product[]
+  stats: {
+    totalEarnings: number
+    totalClicks: number
+    conversionRate: number
+    activeLinks: number
+  }
+}
+
+/**
+ * A unified activity feed item as rendered on the dashboard. Extends {@link Activity}
+ * with the `live` flag (true when sourced from the live WebSocket feed, false when
+ * sourced from the demo API) and a wider `type` union that covers live event types
+ * mapped into the dashboard's vocabulary.
+ */
+export interface DashboardActivity {
+  id: string
+  type: 'sale' | 'click' | 'commission' | 'alert' | 'achievement' | 'info'
+  message: string
+  amount?: number
+  timestamp: string
+  live: boolean
+}
+
+/**
+ * A single search result returned by GET /api/search.
+ * The `icon` field is the name of a lucide-react icon (e.g. "Package").
+ */
+export interface SearchResultItem {
+  type: 'product' | 'link' | 'campaign'
+  id: string
+  label: string
+  desc: string
+  page: PageId
+  icon: string
+  badge?: string
+}

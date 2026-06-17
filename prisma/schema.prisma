@@ -1,7 +1,7 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Looking for ways to speed up your queries, or scale easily with serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
@@ -29,4 +29,90 @@ model Post {
   authorId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// HERMES v2 memory store — holds both agent-side notes and user-profile
+/// facts. `type` discriminates between 'agent' (HERMES' own working notes)
+/// and 'user' (preferences / interests we have learned about the user).
+///
+/// Note: SQLite does not support list-of-primitives, so `tags` is stored as
+/// a JSON-encoded string. The application layer is responsible for
+/// (de)serializing via JSON.parse / JSON.stringify.
+model AgentMemory {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String // 'agent' | 'user'
+  content   String
+  tags      String // JSON-encoded array of strings, e.g. ["trend","beauty"]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, type])
+  @@map("agent_memories")
+}
+
+/// HERMES v2 skills — markdown-encoded procedural knowledge the agent can
+/// auto-detect via `trigger` regex and inject into the system prompt.
+model HermesSkill {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  category    String
+  content     String // Markdown content
+  trigger     String? // Regex pattern for auto-detection
+  status      String   @default("active") // 'active' | 'draft' | 'archived'
+  usageCount  Int      @default(0)
+  successRate Float    @default(0.0)
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category, status])
+  @@map("hermes_skills")
+}
+
+/// HERMES v2 cron jobs — natural-language scheduled automation tasks.
+/// Note: SQLite does not support list-of-primitives, so `skills` is stored
+/// as a JSON-encoded string. Application layer handles (de)serialization.
+model HermesCronJob {
+  id             String   @id @default(cuid())
+  userId         String   @default("demo-user")
+  name           String
+  description    String
+  schedule       String // Natural language or cron expression
+  cronExpression String? // Parsed cron expression
+  skills         String // JSON-encoded array of skill IDs
+  status         String   @default("active") // 'active' | 'paused' | 'running'
+  lastRun        DateTime?
+  nextRun        DateTime?
+  runCount       Int      @default(0)
+  deliverTo      String   @default("chat") // 'chat' | 'notification' | 'email'
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId, status])
+  @@map("hermes_cron_jobs")
+}
+
+/// HERMES v2 subagents — isolated child agents delegated by the parent
+/// HERMES agent to run scoped tasks concurrently.
+/// Note: SQLite does not support list-of-primitives, so `toolsets` is
+/// stored as a JSON-encoded string.
+model HermesSubagent {
+  id            String    @id @default(cuid())
+  parentId      String?
+  userId        String    @default("demo-user")
+  goal          String
+  context       String
+  toolsets      String // JSON-encoded array of tool names
+  status        String    @default("pending") // 'pending' | 'running' | 'completed' | 'failed'
+  result        String?
+  maxIterations Int       @default(5)
+  timeout       Int       @default(60) // seconds
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  completedAt   DateTime?
+
+  @@index([userId, status])
+  @@map("hermes_subagents")
 }
