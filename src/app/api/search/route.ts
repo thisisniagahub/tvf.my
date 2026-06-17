@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { demoProducts, demoLinks, demoCampaigns } from '@/lib/demo-data'
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { handleApiError } from '@/lib/logger'
+import { validateInput, searchSchema } from '@/lib/validation'
 
 export async function GET(request: NextRequest) {
+  const limited = applyRateLimit(request, RATE_LIMITS.search, 'search')
+  if (limited) return limited
+
   try {
     const { searchParams } = new URL(request.url)
-    const q = searchParams.get('q')?.toLowerCase().trim()
+    const rawQ = searchParams.get('q') ?? ''
 
-    if (!q || q.length < 2) {
+    const validation = validateInput(searchSchema, { q: rawQ })
+    if (!validation.success) {
       return NextResponse.json({ results: [] })
     }
+    const q = validation.data.q.toLowerCase().trim()
 
     const productMatches = demoProducts
       .filter((p) => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q))
@@ -53,7 +61,11 @@ export async function GET(request: NextRequest) {
       count: productMatches.length + linkMatches.length + campaignMatches.length,
     })
   } catch (error) {
-    console.error('Search API error:', error)
-    return NextResponse.json({ error: 'Search failed' }, { status: 500 })
+    const { error: msg, status } = handleApiError(
+      error,
+      'Search API',
+      'Search failed'
+    )
+    return NextResponse.json({ error: msg }, { status })
   }
 }

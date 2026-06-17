@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { logger, handleApiError } from '@/lib/logger'
+import { validateInput, aiVoiceoverSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
-  try {
-    const { text, voice = 'tongtong', speed = 1.0 } = await request.json()
+  const limited = applyRateLimit(request, RATE_LIMITS.ai, 'ai-voiceover')
+  if (limited) return limited
 
-    if (!text || !text.trim()) {
-      return NextResponse.json({ error: 'Text is required' }, { status: 400 })
+  try {
+    const body = await request.json()
+    const validation = validateInput(aiVoiceoverSchema, body)
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: validation.status })
     }
+    const { text, voice = 'tongtong', speed = 1.0 } = validation.data
 
     // TTS API limit: 1024 chars
     const truncatedText = text.slice(0, 1000)
@@ -35,13 +42,21 @@ export async function POST(request: NextRequest) {
         },
       })
     } catch (aiError) {
-      console.error('TTS AI error:', aiError)
+      logger.error(
+        'TTS AI error',
+        { voice, textLength: truncatedText.length },
+        aiError
+      )
       return NextResponse.json({
         error: 'Voiceover generation temporarily unavailable. Please try again.',
       }, { status: 503 })
     }
   } catch (error) {
-    console.error('Voiceover API error:', error)
-    return NextResponse.json({ error: 'Failed to generate voiceover' }, { status: 500 })
+    const { error: msg, status } = handleApiError(
+      error,
+      'Voiceover API',
+      'Failed to generate voiceover'
+    )
+    return NextResponse.json({ error: msg }, { status })
   }
 }

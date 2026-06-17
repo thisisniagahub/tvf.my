@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { logger, handleApiError } from '@/lib/logger'
+import { validateInput, contentScriptSchema } from '@/lib/validation'
 
 function generateFallbackScript(
   template: string,
@@ -38,12 +41,16 @@ function generateFallbackScript(
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const { template, productName, language, tone, duration } = await request.json()
+  const limited = applyRateLimit(request, RATE_LIMITS.ai, 'content-script')
+  if (limited) return limited
 
-    if (!productName) {
-      return NextResponse.json({ error: 'Product name is required' }, { status: 400 })
+  try {
+    const body = await request.json()
+    const validation = validateInput(contentScriptSchema, body)
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: validation.status })
     }
+    const { template, productName, language, tone, duration } = validation.data
 
     // Try real AI
     try {
@@ -77,14 +84,20 @@ Requirements:
 
       return NextResponse.json({ script, source: 'ai' })
     } catch (aiError) {
-      console.error('AI error, using fallback:', aiError)
+      logger.warn('Content script AI unavailable, using fallback', {
+        error: aiError instanceof Error ? aiError.message : 'unknown',
+      })
       return NextResponse.json({
         script: generateFallbackScript(template, productName, language, tone, duration),
         source: 'fallback',
       })
     }
   } catch (error) {
-    console.error('Content script error:', error)
-    return NextResponse.json({ error: 'Failed to generate script' }, { status: 500 })
+    const { error: msg, status } = handleApiError(
+      error,
+      'Content script',
+      'Failed to generate script'
+    )
+    return NextResponse.json({ error: msg }, { status })
   }
 }

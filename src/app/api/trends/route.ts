@@ -1,7 +1,12 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { categoryTrends, demoTrends } from '@/lib/demo-data'
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { handleApiError } from '@/lib/logger'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const limited = applyRateLimit(request, RATE_LIMITS.api, 'trends')
+  if (limited) return limited
+
   try {
     return NextResponse.json({
       categories: categoryTrends,
@@ -10,7 +15,11 @@ export async function GET() {
       source: 'demo',
     })
   } catch (error) {
-    console.error('Trends API error:', error)
-    return NextResponse.json({ error: 'Failed to fetch trends' }, { status: 500 })
+    const { error: msg, status } = handleApiError(
+      error,
+      'Trends API',
+      'Failed to fetch trends'
+    )
+    return NextResponse.json({ error: msg }, { status })
   }
 }

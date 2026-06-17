@@ -1,4 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { logger, handleApiError } from '@/lib/logger'
+import { validateInput, hermesChatSchema } from '@/lib/validation'
+import type { ChatMessage } from '@/lib/types'
+
+/** Shape of an inbound HERMES chat request body. */
+interface HermesChatRequestBody {
+  message: string
+  history?: Pick<ChatMessage, 'role' | 'content'>[]
+}
 
 const SYSTEM_PROMPT = `You are HERMES, an AI assistant for TheViralFindsMY — an AI-powered affiliate marketing platform built exclusively for the Malaysian Shopee affiliate market.
 
@@ -36,21 +46,28 @@ function getFallbackResponse(message: string): string {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const { message, history } = await request.json()
+  const limited = applyRateLimit(request, RATE_LIMITS.ai, 'hermes-chat')
+  if (limited) return limited
 
-    if (!message) {
-      return NextResponse.json({ error: 'Message is required' }, { status: 400 })
+  try {
+    const body = await request.json()
+    const validation = validateInput(hermesChatSchema, body)
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: validation.status })
     }
+    const { message, history } = validation.data
 
     // Try real AI
     try {
       const ZAI = (await import('z-ai-web-dev-sdk')).default
       const zai = await ZAI.create()
 
-      const messages = [
+      const messages: Array<{
+        role: 'system' | 'user' | 'assistant'
+        content: string
+      }> = [
         { role: 'system', content: SYSTEM_PROMPT },
-        ...(history || []).map((m: any) => ({
+        ...(history ?? []).map((m) => ({
           role: m.role,
           content: m.content,
         })),
@@ -67,14 +84,20 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ response, source: 'ai' })
     } catch (aiError) {
-      console.error('AI error, using fallback:', aiError)
+      logger.warn('Hermes AI unavailable, using fallback response', {
+        error: aiError instanceof Error ? aiError.message : 'unknown',
+      })
       return NextResponse.json({
         response: getFallbackResponse(message),
         source: 'fallback',
       })
     }
   } catch (error) {
-    console.error('Hermes chat error:', error)
-    return NextResponse.json({ error: 'Failed to process message' }, { status: 500 })
+    const { error: msg, status } = handleApiError(
+      error,
+      'Hermes chat',
+      'Failed to process message'
+    )
+    return NextResponse.json({ error: msg }, { status })
   }
 }

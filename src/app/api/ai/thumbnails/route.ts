@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { logger, handleApiError } from '@/lib/logger'
+import { validateInput, aiThumbnailsSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
-  try {
-    const { productName, style, textOverlay } = await request.json()
+  const limited = applyRateLimit(request, RATE_LIMITS.ai, 'ai-thumbnails')
+  if (limited) return limited
 
-    if (!productName) {
-      return NextResponse.json({ error: 'Product name is required' }, { status: 400 })
+  try {
+    const body = await request.json()
+    const validation = validateInput(aiThumbnailsSchema, body)
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: validation.status })
     }
+    const { productName, style, textOverlay } = validation.data
 
     const stylePrompts: Record<string, string> = {
       Bold: 'bold vibrant colors, high contrast, eye-catching, modern social media thumbnail style, large text-friendly composition',
@@ -40,14 +47,22 @@ export async function POST(request: NextRequest) {
         source: 'ai',
       })
     } catch (aiError) {
-      console.error('Image generation AI error:', aiError)
+      logger.error(
+        'Image generation AI error',
+        { productName, style },
+        aiError
+      )
       return NextResponse.json({
         error: 'Image generation temporarily unavailable. Please try again.',
         source: 'fallback',
       }, { status: 503 })
     }
   } catch (error) {
-    console.error('Thumbnails API error:', error)
-    return NextResponse.json({ error: 'Failed to generate thumbnail' }, { status: 500 })
+    const { error: msg, status } = handleApiError(
+      error,
+      'Thumbnails API',
+      'Failed to generate thumbnail'
+    )
+    return NextResponse.json({ error: msg }, { status })
   }
 }

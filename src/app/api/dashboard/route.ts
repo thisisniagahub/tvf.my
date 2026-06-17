@@ -1,11 +1,16 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import {
   demoEarnings,
   demoActivities,
   demoProducts,
 } from '@/lib/demo-data'
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { handleApiError } from '@/lib/logger'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const limited = applyRateLimit(request, RATE_LIMITS.api, 'dashboard')
+  if (limited) return limited
+
   try {
     return NextResponse.json({
       earnings: demoEarnings,
@@ -19,7 +24,11 @@ export async function GET() {
       },
     })
   } catch (error) {
-    console.error('Dashboard API error:', error)
-    return NextResponse.json({ error: 'Failed to fetch dashboard data' }, { status: 500 })
+    const { error: msg, status } = handleApiError(
+      error,
+      'Dashboard API',
+      'Failed to fetch dashboard data'
+    )
+    return NextResponse.json({ error: msg }, { status })
   }
 }
