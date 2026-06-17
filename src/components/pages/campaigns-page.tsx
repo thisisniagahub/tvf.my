@@ -24,7 +24,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { PageHeader, StatCard, PlatformBadge } from './_shared'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useQuery } from '@tanstack/react-query'
+import { PageHeader, StatCard, PlatformBadge, StatCardSkeleton } from './_shared'
 import { demoCampaigns, formatRM, formatNumber } from '@/lib/demo-data'
 import type { Campaign } from '@/lib/types'
 import { toast } from 'sonner'
@@ -69,6 +71,12 @@ export function CampaignsPage() {
     budget: '500',
     startDate: '',
     endDate: '',
+  })
+
+  const { isLoading } = useQuery({
+    queryKey: ['campaigns-data'],
+    queryFn: () =>
+      new Promise((resolve) => setTimeout(() => resolve({}), 500)),
   })
 
   const stats = useMemo(() => {
@@ -151,6 +159,13 @@ export function CampaignsPage() {
       </PageHeader>
 
       {/* Stat cards */}
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <StatCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Active Campaigns"
@@ -189,6 +204,7 @@ export function CampaignsPage() {
           deltaType="up"
         />
       </div>
+      )}
 
       {/* Filter tabs */}
       <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterTab)}>
@@ -212,7 +228,24 @@ export function CampaignsPage() {
       </Tabs>
 
       {/* Campaign cards grid */}
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i} className="border-border/60">
+              <CardContent className="space-y-3 p-4">
+                <Skeleton className="h-48 w-full rounded-xl" />
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-4 w-20 rounded-full" />
+                <Skeleton className="h-2 w-full rounded-full" />
+                <div className="grid grid-cols-2 gap-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <Card className="border-border/60 border-dashed">
           <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
             <div className="flex size-14 items-center justify-center rounded-2xl bg-muted">

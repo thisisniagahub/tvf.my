@@ -987,3 +987,130 @@ Stage Summary:
   4. Add skeleton loading to remaining pages (Leaderboard, Campaigns, Links).
   5. Add a settings page section showing app version + link to changelog.
   6. Add notification badge count to the "What's New" header button showing number of unseen updates.
+
+---
+Task ID: 9-a
+Agent: full-stack-developer (skeleton loading)
+Task: Add skeleton loading states to Leaderboard, Campaigns, and Links pages
+
+Work Log:
+- Read /home/z/my-project/worklog.md and the 3 target page files plus _shared.tsx
+  to understand the existing structure and available skeleton components
+  (StatCardSkeleton, ListRowSkeleton, ProductCardSkeleton, ProductGridSkeleton).
+- leaderboard-page.tsx:
+  - Added imports: Skeleton (@/components/ui/skeleton), useQuery
+    (@tanstack/react-query), ListRowSkeleton (extended ./_shared import).
+  - Added useQuery({ queryKey: ['leaderboard-data'], queryFn: 500ms simulated
+    fetch }) inside LeaderboardPage.
+  - Wrapped the podium grid with isLoading conditional: 3 skeleton cards each
+    using Skeleton h-40 w-full rounded-xl + smaller blocks for avatar/name/badge/
+    stats.
+  - Wrapped the "Full Leaderboard" SectionCard body with isLoading conditional:
+    8 ListRowSkeleton in a divide-y container instead of the Table.
+  - Wrapped the "Rising Stars" SectionCard body with isLoading conditional:
+    3 ListRowSkeleton instead of the star cards grid.
+  - Stat cards, period Tabs, "Your rank highlighted" card, and encouragement
+    banner remain always visible.
+- campaigns-page.tsx:
+  - Added imports: Skeleton, useQuery, StatCardSkeleton (extended ./_shared).
+  - Added useQuery({ queryKey: ['campaigns-data'], ... }) inside CampaignsPage.
+  - Wrapped the stat cards grid with isLoading conditional: 4 StatCardSkeleton
+    in the same sm:grid-cols-2 lg:grid-cols-4 grid.
+  - Wrapped the campaign cards grid with isLoading conditional: 5 skeleton
+    campaign cards (Skeleton h-48 w-full rounded-xl + blocks for name/platform/
+    budget bar/2x2 stats grid). Turned the existing filtered.length===0 ternary
+    into a nested ternary so empty-state + filtered grid render identically when
+    not loading.
+  - PageHeader, filter Tabs, Create dialog, and Details dialog untouched.
+- links-page.tsx:
+  - Added imports: useQuery, StatCardSkeleton, ListRowSkeleton (extended
+    ./_shared). No Skeleton import needed since all placeholders use shared
+    components.
+  - Added useQuery({ queryKey: ['links-data'], ... }) inside LinksPage.
+  - Wrapped the stat cards grid with isLoading conditional: 4 StatCardSkeleton.
+  - Wrapped the links table CardContent with isLoading conditional: 6
+    ListRowSkeleton in a divide-y container instead of the Table. Card header
+    (link count + Shopee MY badge) stays mounted so the table shell is visible.
+  - Search/filter card and Create link dialog untouched.
+- Ran `bun run lint` → passed with no errors.
+- Checked dev.log tail → all recent compiles clean, GET / 200 responses, no
+  runtime errors after the edits.
+- Wrote detailed work record to /home/z/my-project/agent-ctx/9-a-full-stack-developer-skeleton-loading.md
+  for downstream agents.
+
+Stage Summary:
+- All 3 pages (Leaderboard, Campaigns, Links) now show skeleton loading states
+  for ~500ms on initial mount, driven by TanStack Query's isLoading flag.
+- Skeletons fill the same grid cells and container heights as the real content
+  so there is no layout shift when loading completes.
+- Used the shared StatCardSkeleton and ListRowSkeleton from _shared.tsx wherever
+  they fit; used inline Skeleton from @/components/ui/skeleton for the custom
+  podium cards (leaderboard) and campaign cards (campaigns).
+- Existing functionality (state, handlers, dialogs, animations, Tab filters,
+  encouragement banners) fully preserved — only loading conditional rendering
+  + useQuery + skeleton imports were added.
+- 'use client' directive and all export names (LeaderboardPage, CampaignsPage,
+  LinksPage) preserved.
+- Lint passes clean and the dev server compiles without runtime errors.
+
+---
+
+Task ID: 9 (Main orchestrator round — About tab, frequent pages, skeleton loading, key fix)
+Agent: main (Z.ai Code orchestrator)
+Task: QA the local app, then add Settings About tab with changelog link, Frequently Visited smart section in command palette, skeleton loading on Leaderboard/Campaigns/Links, and fix duplicate key warning.
+
+Work Log:
+- Reviewed worklog.md: app stable with skeleton loading (Analytics/Earnings/Hermes Hub), "/" shortcut, changelog modal.
+- QA with agent-browser: all 36 pages render, 0 console errors, 0 lint errors, 0 TS errors in src/. App is stable.
+- Found a duplicate React key warning when a page appears in both "Frequently Visited" and "Recently Visited" command palette sections.
+
+- BUG FIX: Duplicate React key warning in command palette
+  * When a page appeared in both "Frequently Visited" and "Recently Visited" sections, the key `${item.type}-${item.id}` collided
+  * Fixed by making the key unique: `${item.type}-${item.id}-${item.frequent ? 'freq' : item.recent ? 'recent' : 'item'}-${idx}`
+  * Verified: 0 console errors after fix
+
+- FEATURE: Settings "About" tab with app version + changelog link
+  * Added "About" tab (Info icon) to Settings page sidebar
+  * Application SectionCard: logo, app name, v2.4.0 badge, release date, description with Malaysian flag
+  * What's New SectionCard: 3 recent changelog entries (v2.4, v2.3, v2.2) with feature tags + "View Full Changelog" button that opens the changelog modal
+  * Quick Stats SectionCard: 4 stat tiles (36 Pages, 8 API Routes, 4 AI Features, 14 Keyboard Shortcuts)
+  * Links SectionCard: Help Center, API Documentation, Terms of Service, Privacy Policy (with toast on click)
+  * Footer: "Built with love for Malaysian affiliates" with heart icon
+
+- FEATURE: "Frequently Visited" smart section in command palette
+  * Added `pageVisitCounts: Record<string, number>` to Zustand store (persisted)
+  * Updated `setActivePage` to increment visit count on each navigation
+  * Command palette now shows a "Frequently Visited" section (Flame icon, shopee color) above "Recently Visited"
+  * Shows up to 4 pages with visit count ≥ 2 (excluding dashboard), sorted by visit count descending
+  * Each item shows "N visits" as description
+  * Visual separators (border-t) between sections
+  * Only appears after user has visited pages multiple times
+
+- FEATURE: Skeleton loading on Leaderboard, Campaigns, Links (via subagent Task 9-a)
+  * Leaderboard: 3 skeleton podium cards, 8 ListRowSkeleton for table, 3 ListRowSkeleton for Rising Stars
+  * Campaigns: 4 StatCardSkeleton, 5 skeleton campaign cards with budget bar + stats
+  * Links: 4 StatCardSkeleton, 6 ListRowSkeleton for the links table
+  * All driven by 500ms simulated useQuery
+
+- QA verification:
+  * bun run lint: 0 errors, 0 warnings ✓
+  * tsc --noEmit: 0 errors in src/ ✓
+  * All 36 pages render: 0 failures ✓
+  * Settings About tab: renders with app info, version, changelog entries, quick stats, links ✓
+  * "View Full Changelog" button: opens changelog modal ✓
+  * Frequently Visited section: shows "Products (3 visits)", "Trend Spy (2 visits)" after navigating ✓
+  * Duplicate key warning: fixed, 0 console errors ✓
+  * Leaderboard, Campaigns, Links: render with skeleton loading ✓
+  * 0 console errors, 0 page errors ✓
+
+Stage Summary:
+- The local TheViralFindsMY app now has a comprehensive Settings → About tab (app version, changelog preview, quick stats, resource links), a "Frequently Visited" smart section in the command palette (visit-count based), skeleton loading on all major data pages (Products, Trend Spy, Analytics, Earnings, Hermes Hub, Leaderboard, Campaigns, Links), and a fixed duplicate React key warning.
+- The app remains stable: 0 lint errors, 0 TypeScript errors in src/, all 36 pages render, 0 console errors.
+- The command palette now has 3 smart sections: Frequently Visited (visit count), Recently Visited (recency), Quick Actions — plus global content search and page navigation.
+- Recommended next-step focus for the next recurring review:
+  1. Wire up the Prisma database (schema still has default User/Post models — add Product, Link, Campaign, Notification models and persist real data).
+  2. Make content search results clickable to open detail modals (e.g., clicking a product result opens the product detail dialog).
+  3. Add a notification badge count to the "What's New" header button showing number of unseen updates.
+  4. Add a "reset all settings" option in the Settings → About tab.
+  5. Add export/import settings functionality (JSON download/upload).
+  6. Add a dark mode tour / interactive onboarding for the command palette features.

@@ -17,7 +17,9 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Progress } from '@/components/ui/progress'
-import { PageHeader, StatCard, SectionCard } from './_shared'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useQuery } from '@tanstack/react-query'
+import { PageHeader, StatCard, SectionCard, ListRowSkeleton } from './_shared'
 import { formatRM, formatNumber } from '@/lib/demo-data'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -72,6 +74,12 @@ const userRank = {
 export function LeaderboardPage() {
   const [period, setPeriod] = useState<Period>('month')
 
+  const { isLoading } = useQuery({
+    queryKey: ['leaderboard-data'],
+    queryFn: () =>
+      new Promise((resolve) => setTimeout(() => resolve({}), 500)),
+  })
+
   const podiumColors: Record<number, { ring: string; bg: string; text: string; icon: Icons.LucideIcon; label: string }> = {
     1: { ring: 'ring-amber-400', bg: 'bg-gradient-to-br from-amber-300 to-amber-500', text: 'text-amber-700', icon: Icons.Crown, label: 'Gold' },
     2: { ring: 'ring-slate-300', bg: 'bg-gradient-to-br from-slate-200 to-slate-400', text: 'text-slate-700', icon: Icons.Medal, label: 'Silver' },
@@ -116,6 +124,25 @@ export function LeaderboardPage() {
       </Tabs>
 
       {/* Podium */}
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="border-border/60">
+              <CardContent className="flex flex-col items-center p-6 text-center">
+                <Skeleton className="h-40 w-full rounded-xl" />
+                <Skeleton className="mt-4 size-20 rounded-full" />
+                <Skeleton className="mt-3 h-5 w-28" />
+                <Skeleton className="mt-2 h-4 w-16 rounded-full" />
+                <div className="mt-4 w-full space-y-2 border-t pt-4">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-full" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
       <div className="grid gap-4 md:grid-cols-3">
         {podiumOrder.map((entry, index) => {
           const c = podiumColors[entry.rank]
@@ -186,6 +213,7 @@ export function LeaderboardPage() {
           )
         })}
       </div>
+      )}
 
       {/* Your rank highlighted */}
       <Card className="border-shopee/30 bg-shopee/5">
@@ -230,6 +258,13 @@ export function LeaderboardPage() {
         icon={Icons.ListOrdered}
         action={<Badge variant="outline" className="gap-1"><Icons.Users className="size-3" /> {formatNumber(leaders.length)} shown</Badge>}
       >
+        {isLoading ? (
+          <div className="divide-y">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <ListRowSkeleton key={i} />
+            ))}
+          </div>
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -292,6 +327,7 @@ export function LeaderboardPage() {
             ))}
           </TableBody>
         </Table>
+        )}
       </SectionCard>
 
       {/* Rising Stars */}
@@ -300,6 +336,13 @@ export function LeaderboardPage() {
         description="Biggest movers this week — keep an eye on these wahabies!"
         icon={Icons.Rocket}
       >
+        {isLoading ? (
+          <div className="space-y-1">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <ListRowSkeleton key={i} />
+            ))}
+          </div>
+        ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {risingStars.map((star) => (
             <Card
@@ -326,6 +369,7 @@ export function LeaderboardPage() {
             </Card>
           ))}
         </div>
+        )}
       </SectionCard>
 
       {/* Encouragement banner */}

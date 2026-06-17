@@ -38,7 +38,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { PageHeader, StatCard, PlatformBadge } from './_shared'
+import { useQuery } from '@tanstack/react-query'
+import { PageHeader, StatCard, PlatformBadge, StatCardSkeleton, ListRowSkeleton } from './_shared'
 import { demoLinks, demoProducts, formatRM, formatNumber } from '@/lib/demo-data'
 import type { AffiliateLink } from '@/lib/types'
 import { toast } from 'sonner'
@@ -55,6 +56,12 @@ export function LinksPage() {
     productId: '',
     slug: '',
     campaign: '',
+  })
+
+  const { isLoading } = useQuery({
+    queryKey: ['links-data'],
+    queryFn: () =>
+      new Promise((resolve) => setTimeout(() => resolve({}), 500)),
   })
 
   // Derived stats
@@ -168,6 +175,13 @@ export function LinksPage() {
       </PageHeader>
 
       {/* Stat cards */}
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <StatCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Total Links"
@@ -206,6 +220,7 @@ export function LinksPage() {
           deltaType="up"
         />
       </div>
+      )}
 
       {/* Search + filter tabs */}
       <Card className="border-border/60">
@@ -252,6 +267,13 @@ export function LinksPage() {
           </Badge>
         </div>
         <CardContent className="p-0">
+          {isLoading ? (
+            <div className="divide-y">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <ListRowSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/30">
@@ -424,6 +446,7 @@ export function LinksPage() {
               )}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 

@@ -15,6 +15,7 @@ interface AppState {
   sidebarCollapsed: boolean
   pinnedPages: PageId[]
   recentPages: PageId[]
+  pageVisitCounts: Record<string, number>
   commandPaletteOpen: boolean
   liveNotificationsEnabled: boolean
 
@@ -55,6 +56,7 @@ export const useAppStore = create<AppState>()(
       sidebarCollapsed: false,
       pinnedPages: ['dashboard', 'ai-content', 'earnings'],
       recentPages: [],
+      pageVisitCounts: {},
       commandPaletteOpen: false,
       liveNotificationsEnabled: true,
 
@@ -77,6 +79,10 @@ export const useAppStore = create<AppState>()(
             page,
             ...state.recentPages.filter((p) => p !== page),
           ].slice(0, 8),
+          pageVisitCounts: {
+            ...state.pageVisitCounts,
+            [page]: (state.pageVisitCounts[page] ?? 0) + 1,
+          },
         })),
       toggleSidebar: () =>
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
@@ -107,6 +113,7 @@ export const useAppStore = create<AppState>()(
         sidebarCollapsed: state.sidebarCollapsed,
         pinnedPages: state.pinnedPages,
         recentPages: state.recentPages,
+        pageVisitCounts: state.pageVisitCounts,
         liveNotificationsEnabled: state.liveNotificationsEnabled,
       }),
     }

@@ -36,7 +36,7 @@ const quickActions = [
 ]
 
 export function CommandPalette() {
-  const { commandPaletteOpen, setCommandPaletteOpen, setActivePage, recentPages, clearRecentPages } = useAppStore()
+  const { commandPaletteOpen, setCommandPaletteOpen, setActivePage, recentPages, pageVisitCounts, clearRecentPages } = useAppStore()
   const { theme, setTheme } = useTheme()
   const [query, setQueryState] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
@@ -154,10 +154,35 @@ export function CommandPalette() {
       recent: true,
     })), [recentPages])
 
+  // Frequently visited pages — sorted by visit count (excluding dashboard which is always #1)
+  const frequentItems = useMemo(() => {
+    const entries = Object.entries(pageVisitCounts)
+      .filter(([id, count]) => id !== 'dashboard' && count >= 2)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 4)
+    return entries
+      .map(([pageId, count]) => {
+        const item = navItems.find((i) => i.id === pageId)
+        if (!item) return null
+        return {
+          type: 'page' as const,
+          id: item.id,
+          label: item.label,
+          desc: `${count} visits`,
+          icon: (Icons as unknown as Record<string, Icons.LucideIcon>)[item.icon] ?? Icons.Circle,
+          badge: item.badge,
+          page: item.id,
+          frequent: true,
+        }
+      })
+      .filter((i): i is NonNullable<typeof i> => i !== null)
+  }, [pageVisitCounts])
+
   const allItems = useMemo(() => [
+    ...frequentItems,
     ...recentItems,
     ...quickActions.map((a) => ({ type: 'action' as const, ...a })),
-  ], [recentItems])
+  ], [frequentItems, recentItems])
 
   // Map content results to display items with proper icons
   const contentItems = contentResults.map((r) => ({
@@ -234,6 +259,14 @@ export function CommandPalette() {
         </div>
         {/* Results */}
         <div ref={listRef} className="max-h-[400px] overflow-y-auto scrollbar-thin">
+          {/* Frequently Visited header */}
+          {!results && frequentItems.length > 0 && (
+            <div className="px-4 pt-3 pb-1">
+              <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <Icons.Flame className="size-3 text-shopee" /> Frequently Visited
+              </p>
+            </div>
+          )}
           {/* Recently Visited header with clear button */}
           {!results && recentItems.length > 0 && (
             <div className="flex items-center justify-between px-4 pt-3 pb-1">
@@ -290,12 +323,27 @@ export function CommandPalette() {
             {displayItems.map((item: any, idx: number) => {
               const isActive = idx === activeIndex
               const isRecent = item.recent && !results
+              const isFrequent = item.frequent && !results
               const isContent = item.type === 'content'
               const isFirstContent = isContent && (idx === 0 || displayItems[idx - 1]?.type !== 'content')
-              // Find boundary between recent and actions for visual separator
-              const isLastRecent = isRecent && idx === recentItems.length - 1
+              // Find boundaries between sections for visual separators
+              const isLastFrequent = isFrequent && (idx === frequentItems.length - 1)
+              const isLastRecent = isRecent && (idx === frequentItems.length + recentItems.length - 1)
+              // First frequent item (after frequent header)
+              const isFirstFrequent = isFrequent && idx === 0
+              // First recent item (after frequent section)
+              const isFirstRecent = isRecent && (idx === frequentItems.length)
               return (
-                <div key={`${item.type}-${item.id}`}>
+                <div key={`${item.type}-${item.id}-${item.frequent ? 'freq' : item.recent ? 'recent' : 'item'}-${idx}`}>
+                  {isFirstFrequent && frequentItems.length > 0 && idx > 0 && (
+                    <div className="my-1 border-t" />
+                  )}
+                  {isFirstRecent && frequentItems.length > 0 && (
+                    <div className="my-1 border-t" />
+                  )}
+                  {isLastFrequent && frequentItems.length > 0 && (
+                    <div className="my-1 border-t" />
+                  )}
                   {isFirstContent && results && results.length > 0 && (
                     <div className="my-1 border-t" />
                   )}
