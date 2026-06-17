@@ -74,3 +74,4 @@ upload/
 
 # mini-services node_modules
 mini-services/*/node_modules
+tool-results/

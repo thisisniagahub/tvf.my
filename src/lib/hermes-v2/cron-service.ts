@@ -8,9 +8,15 @@
  * expose a manual `executeJob` endpoint. In production, a Vercel Cron
  * or external scheduler would invoke `/api/hermes/cron/execute` on the
  * schedule derived from `cronExpression`.
+ *
+ * Vercel fallback: On Vercel serverless, SQLite is not persistent. When
+ * the DB is unavailable (or a query fails at runtime), every method
+ * transparently falls back to an in-memory `Map` keyed by job id. The
+ * API response shape is identical so callers (cron API, UI) keep
+ * working in either mode.
  */
 
-import { db } from '@/lib/db'
+import { db, dbAvailable, withDbFallback } from '@/lib/db'
 import { logger } from '@/lib/logger'
 
 // ============== Types ==============
@@ -265,6 +271,19 @@ function rowToRecord(row: CronJobRow): CronJobRecord {
   }
 }
 
+// ============== In-Memory Fallback Store ==============
+
+/** Generate a cuid-ish id without pulling in a dependency. */
+function generateId(): string {
+  return `cron_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+/**
+ * In-memory cron-job store keyed by job id. Used only when the DB is
+ * unavailable (Vercel serverless / first runtime failure).
+ */
+const cronStore = new Map<string, CronJobRow>()
+
 // ============== Public Service API ==============
 
 /**
@@ -282,28 +301,88 @@ export async function scheduleJob(
     )
   }
   const nextRun = computeNextRun(cronExpression) ?? undefined
+  const userId = config.userId ?? 'demo-user'
+  const now = new Date()
 
-  const created = await db.hermesCronJob.create({
-    data: {
-      userId: config.userId ?? 'demo-user',
+  if (!dbAvailable) {
+    const row: CronJobRow = {
+      id: generateId(),
+      userId,
       name: config.name,
       description: config.description,
       schedule: config.schedule,
       cronExpression,
       skills: JSON.stringify(config.skills ?? []),
+      status: 'active',
+      lastRun: null,
+      nextRun: nextRun ?? null,
+      runCount: 0,
       deliverTo: config.deliverTo ?? 'chat',
-      nextRun,
-    },
-  })
+      createdAt: now,
+      updatedAt: now,
+    }
+    cronStore.set(row.id, row)
 
-  logger.info('Cron job scheduled', {
-    jobId: created.id,
-    name: created.name,
+    logger.info('Cron job scheduled (in-memory fallback)', {
+      jobId: row.id,
+      name: row.name,
+      cronExpression,
+      nextRun: nextRun?.toISOString() ?? null,
+    })
+    return rowToRecord(row)
+  }
+
+  const created = await withDbFallback(
+    () =>
+      db.hermesCronJob.create({
+        data: {
+          userId,
+          name: config.name,
+          description: config.description,
+          schedule: config.schedule,
+          cronExpression,
+          skills: JSON.stringify(config.skills ?? []),
+          deliverTo: config.deliverTo ?? 'chat',
+          nextRun,
+        },
+      }),
+    null as Awaited<ReturnType<typeof db.hermesCronJob.create>> | null
+  )
+
+  if (created) {
+    logger.info('Cron job scheduled', {
+      jobId: created.id,
+      name: created.name,
+      cronExpression,
+      nextRun: nextRun?.toISOString() ?? null,
+    })
+    return rowToRecord(created as unknown as CronJobRow)
+  }
+
+  // DB failed — mirror into in-memory store so the caller still gets a job.
+  const row: CronJobRow = {
+    id: generateId(),
+    userId,
+    name: config.name,
+    description: config.description,
+    schedule: config.schedule,
     cronExpression,
-    nextRun: nextRun?.toISOString() ?? null,
+    skills: JSON.stringify(config.skills ?? []),
+    status: 'active',
+    lastRun: null,
+    nextRun: nextRun ?? null,
+    runCount: 0,
+    deliverTo: config.deliverTo ?? 'chat',
+    createdAt: now,
+    updatedAt: now,
+  }
+  cronStore.set(row.id, row)
+  logger.info('Cron job scheduled (in-memory fallback after DB failure)', {
+    jobId: row.id,
+    name: row.name,
+    cronExpression,
   })
-
-  return rowToRecord(created as unknown as CronJobRow)
+  return rowToRecord(row)
 }
 
 /**
@@ -312,17 +391,53 @@ export async function scheduleJob(
  * (Vercel Cron, etc.) calling `/api/hermes/cron/execute`.
  */
 export async function activateJob(jobId: string): Promise<CronJobRecord> {
-  const existing = await db.hermesCronJob.findUnique({ where: { id: jobId } })
+  if (!dbAvailable) {
+    const row = cronStore.get(jobId)
+    if (!row) throw new Error(`Cron job not found: ${jobId}`)
+    if (!row.cronExpression) {
+      throw new Error('Cannot activate job without a parsed cron expression')
+    }
+    const nextRun = computeNextRun(row.cronExpression) ?? null
+    const updated: CronJobRow = {
+      ...row,
+      status: 'active',
+      nextRun,
+      updatedAt: new Date(),
+    }
+    cronStore.set(jobId, updated)
+    return rowToRecord(updated)
+  }
+
+  const existing = await withDbFallback(
+    () => db.hermesCronJob.findUnique({ where: { id: jobId } }),
+    null as Awaited<ReturnType<typeof db.hermesCronJob.findUnique>> | null
+  )
   if (!existing) throw new Error(`Cron job not found: ${jobId}`)
   if (!existing.cronExpression) {
     throw new Error('Cannot activate job without a parsed cron expression')
   }
   const nextRun = computeNextRun(existing.cronExpression) ?? undefined
-  const updated = await db.hermesCronJob.update({
-    where: { id: jobId },
-    data: { status: 'active', nextRun },
-  })
-  return rowToRecord(updated as unknown as CronJobRow)
+  const updated = await withDbFallback(
+    () =>
+      db.hermesCronJob.update({
+        where: { id: jobId },
+        data: { status: 'active', nextRun },
+      }),
+    null as Awaited<ReturnType<typeof db.hermesCronJob.update>> | null
+  )
+  if (updated) return rowToRecord(updated as unknown as CronJobRow)
+
+  // DB failed — update in-memory mirror.
+  const row = cronStore.get(jobId)
+  if (!row) throw new Error(`Cron job not found: ${jobId}`)
+  const mirrored: CronJobRow = {
+    ...row,
+    status: 'active',
+    nextRun: nextRun ?? null,
+    updatedAt: new Date(),
+  }
+  cronStore.set(jobId, mirrored)
+  return rowToRecord(mirrored)
 }
 
 /**
@@ -337,18 +452,52 @@ export async function activateJob(jobId: string): Promise<CronJobRecord> {
 export async function executeJob(
   jobId: string
 ): Promise<CronExecutionResult> {
-  const job = await db.hermesCronJob.findUnique({ where: { id: jobId } })
-  if (!job) throw new Error(`Cron job not found: ${jobId}`)
+  if (!dbAvailable) {
+    const row = cronStore.get(jobId)
+    if (!row) throw new Error(`Cron job not found: ${jobId}`)
+    return executeJobFromRow(row)
+  }
 
+  const job = await withDbFallback(
+    () => db.hermesCronJob.findUnique({ where: { id: jobId } }),
+    null as Awaited<ReturnType<typeof db.hermesCronJob.findUnique>> | null
+  )
+
+  if (job) {
+    return executeJobFromRow(job as unknown as CronJobRow, /* useDb */ true)
+  }
+
+  // DB miss / fallback — try the in-memory store.
+  const row = cronStore.get(jobId)
+  if (!row) throw new Error(`Cron job not found: ${jobId}`)
+  return executeJobFromRow(row)
+}
+
+/**
+ * Core executeJob logic — works against either a DB-backed row or an
+ * in-memory row. Persists status changes back to the same source.
+ */
+async function executeJobFromRow(
+  row: CronJobRow,
+  useDb: boolean = false
+): Promise<CronExecutionResult> {
   // Mark as running
-  await db.hermesCronJob.update({
-    where: { id: jobId },
-    data: { status: 'running' },
-  })
+  if (useDb && dbAvailable) {
+    await withDbFallback(
+      () =>
+        db.hermesCronJob.update({
+          where: { id: row.id },
+          data: { status: 'running' },
+        }),
+      null
+    )
+  } else {
+    cronStore.set(row.id, { ...row, status: 'running', updatedAt: new Date() })
+  }
 
   let skills: string[] = []
   try {
-    const parsed = JSON.parse(job.skills)
+    const parsed = JSON.parse(row.skills)
     if (Array.isArray(parsed)) skills = parsed.map(String)
   } catch {
     skills = []
@@ -356,10 +505,10 @@ export async function executeJob(
 
   const prompt =
     `You are HERMES executing a scheduled automation task.\n` +
-    `Task Name: ${job.name}\n` +
-    `Description: ${job.description}\n` +
+    `Task Name: ${row.name}\n` +
+    `Description: ${row.description}\n` +
     `Skills to apply: ${skills.length ? skills.join(', ') : 'general'}\n` +
-    `Scheduled: ${job.schedule} (cron: ${job.cronExpression ?? 'unknown'})\n\n` +
+    `Scheduled: ${row.schedule} (cron: ${row.cronExpression ?? 'unknown'})\n\n` +
     `Produce a concise, actionable summary for the Malaysian Shopee affiliate market. ` +
     `Keep it under 200 words. Use bullet points where appropriate.`
 
@@ -382,47 +531,64 @@ export async function executeJob(
     })
     result =
       completion.choices[0]?.message?.content ??
-      `Scheduled task "${job.name}" executed with no output.`
+      `Scheduled task "${row.name}" executed with no output.`
     success = true
   } catch (aiError) {
     logger.warn('Cron job AI unavailable, using fallback summary', {
-      jobId,
+      jobId: row.id,
       error: aiError instanceof Error ? aiError.message : 'unknown',
     })
     result =
-      `Scheduled task "${job.name}" ran at ${new Date().toISOString()}.\n` +
-      `Description: ${job.description}\n` +
+      `Scheduled task "${row.name}" ran at ${new Date().toISOString()}.\n` +
+      `Description: ${row.description}\n` +
       `Skills: ${skills.length ? skills.join(', ') : 'none'}\n` +
       `Note: AI service was unavailable — this is a static fallback summary.`
     success = false
   }
 
   const now = new Date()
-  const nextRun = job.cronExpression ? computeNextRun(job.cronExpression, now) ?? undefined : undefined
+  const nextRun = row.cronExpression
+    ? computeNextRun(row.cronExpression, now) ?? null
+    : null
 
-  await db.hermesCronJob.update({
-    where: { id: jobId },
-    data: {
+  if (useDb && dbAvailable) {
+    await withDbFallback(
+      () =>
+        db.hermesCronJob.update({
+          where: { id: row.id },
+          data: {
+            status: 'active',
+            lastRun: now,
+            nextRun: nextRun ?? undefined,
+            runCount: { increment: 1 },
+          },
+        }),
+      null
+    )
+  } else {
+    cronStore.set(row.id, {
+      ...row,
       status: 'active',
       lastRun: now,
       nextRun,
-      runCount: { increment: 1 },
-    },
-  })
+      runCount: row.runCount + 1,
+      updatedAt: now,
+    })
+  }
 
   logger.info('Cron job executed', {
-    jobId,
-    name: job.name,
+    jobId: row.id,
+    name: row.name,
     success,
-    runCount: job.runCount + 1,
-    deliverTo: job.deliverTo,
+    runCount: row.runCount + 1,
+    deliverTo: row.deliverTo,
   })
 
   return {
-    jobId,
+    jobId: row.id,
     success,
     result,
-    deliveredTo: job.deliverTo as 'chat' | 'notification' | 'email',
+    deliveredTo: row.deliverTo as 'chat' | 'notification' | 'email',
     executedAt: now.toISOString(),
   }
 }
@@ -431,20 +597,50 @@ export async function executeJob(
  * List all cron jobs for a user, newest first.
  */
 export async function getJobs(userId: string = 'demo-user'): Promise<CronJobRecord[]> {
-  const rows = await db.hermesCronJob.findMany({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
-  })
-  return rows.map((r) => rowToRecord(r as unknown as CronJobRow))
+  if (!dbAvailable) {
+    const rows = Array.from(cronStore.values())
+      .filter((r) => r.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    return rows.map(rowToRecord)
+  }
+
+  const rows = await withDbFallback(
+    () =>
+      db.hermesCronJob.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+      }),
+    [] as Awaited<ReturnType<typeof db.hermesCronJob.findMany>>
+  )
+
+  if (rows.length > 0) {
+    return rows.map((r) => rowToRecord(r as unknown as CronJobRow))
+  }
+
+  // DB miss / fallback — also include in-memory rows.
+  const memRows = Array.from(cronStore.values())
+    .filter((r) => r.userId === userId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+  return memRows.map(rowToRecord)
 }
 
 /**
  * Get a single cron job by ID.
  */
 export async function getJob(jobId: string): Promise<CronJobRecord | null> {
-  const row = await db.hermesCronJob.findUnique({ where: { id: jobId } })
-  if (!row) return null
-  return rowToRecord(row as unknown as CronJobRow)
+  if (!dbAvailable) {
+    const row = cronStore.get(jobId)
+    return row ? rowToRecord(row) : null
+  }
+
+  const row = await withDbFallback(
+    () => db.hermesCronJob.findUnique({ where: { id: jobId } }),
+    null as Awaited<ReturnType<typeof db.hermesCronJob.findUnique>> | null
+  )
+  if (row) return rowToRecord(row as unknown as CronJobRow)
+
+  const memRow = cronStore.get(jobId)
+  return memRow ? rowToRecord(memRow) : null
 }
 
 /**
@@ -455,7 +651,31 @@ export async function updateJobStatus(
   jobId: string,
   status: 'active' | 'paused'
 ): Promise<CronJobRecord> {
-  const existing = await db.hermesCronJob.findUnique({ where: { id: jobId } })
+  if (!dbAvailable) {
+    const row = cronStore.get(jobId)
+    if (!row) throw new Error(`Cron job not found: ${jobId}`)
+    const nextRun =
+      status === 'active' && row.cronExpression
+        ? computeNextRun(row.cronExpression) ?? null
+        : null
+    const updated: CronJobRow = {
+      ...row,
+      status,
+      nextRun,
+      updatedAt: new Date(),
+    }
+    cronStore.set(jobId, updated)
+    logger.info('Cron job status updated (in-memory fallback)', {
+      jobId,
+      status,
+    })
+    return rowToRecord(updated)
+  }
+
+  const existing = await withDbFallback(
+    () => db.hermesCronJob.findUnique({ where: { id: jobId } }),
+    null as Awaited<ReturnType<typeof db.hermesCronJob.findUnique>> | null
+  )
   if (!existing) throw new Error(`Cron job not found: ${jobId}`)
 
   const nextRun =
@@ -463,19 +683,47 @@ export async function updateJobStatus(
       ? computeNextRun(existing.cronExpression) ?? undefined
       : null
 
-  const updated = await db.hermesCronJob.update({
-    where: { id: jobId },
-    data: { status, nextRun },
-  })
+  const updated = await withDbFallback(
+    () =>
+      db.hermesCronJob.update({
+        where: { id: jobId },
+        data: { status, nextRun },
+      }),
+    null as Awaited<ReturnType<typeof db.hermesCronJob.update>> | null
+  )
 
-  logger.info('Cron job status updated', { jobId, status })
-  return rowToRecord(updated as unknown as CronJobRow)
+  if (updated) {
+    logger.info('Cron job status updated', { jobId, status })
+    return rowToRecord(updated as unknown as CronJobRow)
+  }
+
+  // DB failed — mirror into in-memory store.
+  const row = cronStore.get(jobId) ?? (existing as unknown as CronJobRow)
+  const mirrored: CronJobRow = {
+    ...row,
+    status,
+    nextRun: nextRun ?? null,
+    updatedAt: new Date(),
+  }
+  cronStore.set(jobId, mirrored)
+  return rowToRecord(mirrored)
 }
 
 /**
  * Delete a cron job permanently.
  */
 export async function deleteJob(jobId: string): Promise<void> {
-  await db.hermesCronJob.delete({ where: { id: jobId } })
+  if (!dbAvailable) {
+    cronStore.delete(jobId)
+    logger.info('Cron job deleted (in-memory fallback)', { jobId })
+    return
+  }
+
+  await withDbFallback(
+    () => db.hermesCronJob.delete({ where: { id: jobId } }),
+    null
+  )
+  // Always also clear the in-memory mirror so the two stay in sync.
+  cronStore.delete(jobId)
   logger.info('Cron job deleted', { jobId })
 }

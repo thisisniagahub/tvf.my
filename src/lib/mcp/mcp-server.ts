@@ -13,9 +13,15 @@
  *    configured in this sandbox). The schema column is named `apiKey` but
  *    should be treated as opaque — never log it or return it to clients in
  *    full. We expose only a masked preview via `maskApiKey()`.
+ *
+ * Vercel fallback: On Vercel serverless, SQLite is not persistent. When
+ * the DB is unavailable (or a query fails at runtime), every method
+ * transparently falls back to an in-memory `Map` keyed by server id.
+ * The API response shape is identical so callers (MCP API, UI) keep
+ * working in either mode.
  */
 
-import { db } from '@/lib/db'
+import { db, dbAvailable, withDbFallback } from '@/lib/db'
 import { logger } from '@/lib/logger'
 
 export type McpServerType = 'hermes' | 'openclaw' | 'custom'
@@ -91,27 +97,89 @@ function maskApiKey(key?: string | null): string | undefined {
   return `${key.slice(0, 4)}••••${key.slice(-4)}`
 }
 
+/** Internal in-memory server row (mirrors the Prisma shape). */
+interface InMemoryServerRow {
+  id: string
+  userId: string
+  name: string
+  type: string
+  endpoint: string
+  apiKey: string | null
+  status: string
+  capabilities: string
+  lastConnected: Date | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+/** Generate a cuid-ish id without pulling in a dependency. */
+function generateId(): string {
+  return `mcp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+}
+
 export class McpServerService {
+  /**
+   * In-memory MCP-server store keyed by server id. Used only when the DB
+   * is unavailable (Vercel serverless / first runtime failure).
+   */
+  private serverStore = new Map<string, InMemoryServerRow>()
+
   /**
    * List every MCP server configured by the given user.
    * Ordered by most-recently-updated first.
    */
   async getServers(userId: string): Promise<McpServerConfig[]> {
-    const servers = await db.mcpServer.findMany({
-      where: { userId },
-      orderBy: { updatedAt: 'desc' },
-    })
-    return servers.map((s) => this.mapServer(s))
+    if (!dbAvailable) {
+      const rows = Array.from(this.serverStore.values())
+        .filter((s) => s.userId === userId)
+        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      return rows.map((s) => this.mapServer(s))
+    }
+
+    const servers = await withDbFallback(
+      () =>
+        db.mcpServer.findMany({
+          where: { userId },
+          orderBy: { updatedAt: 'desc' },
+        }),
+      [] as Awaited<ReturnType<typeof db.mcpServer.findMany>>
+    )
+
+    if (servers.length > 0) {
+      return servers.map((s) => this.mapServer(s))
+    }
+
+    // DB miss / fallback — also include in-memory rows.
+    const memRows = Array.from(this.serverStore.values())
+      .filter((s) => s.userId === userId)
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    return memRows.map((s) => this.mapServer(s))
   }
 
   /**
    * Fetch a single MCP server by id (optionally scoped to a user).
    */
   async getServer(serverId: string, userId?: string): Promise<McpServerConfig | null> {
-    const server = await db.mcpServer.findUnique({ where: { id: serverId } })
-    if (!server) return null
-    if (userId && server.userId !== userId) return null
-    return this.mapServer(server)
+    if (!dbAvailable) {
+      const row = this.serverStore.get(serverId)
+      if (!row) return null
+      if (userId && row.userId !== userId) return null
+      return this.mapServer(row)
+    }
+
+    const server = await withDbFallback(
+      () => db.mcpServer.findUnique({ where: { id: serverId } }),
+      null as Awaited<ReturnType<typeof db.mcpServer.findUnique>> | null
+    )
+    if (server) {
+      if (userId && server.userId !== userId) return null
+      return this.mapServer(server)
+    }
+
+    const memRow = this.serverStore.get(serverId)
+    if (!memRow) return null
+    if (userId && memRow.userId !== userId) return null
+    return this.mapServer(memRow)
   }
 
   /**
@@ -124,9 +192,11 @@ export class McpServerService {
     config: NewMcpServerInput
   ): Promise<McpServerConfig> {
     assertType(config.type)
+    const now = new Date()
 
-    const server = await db.mcpServer.create({
-      data: {
+    if (!dbAvailable) {
+      const row: InMemoryServerRow = {
+        id: generateId(),
         userId,
         name: config.name.trim(),
         type: config.type,
@@ -134,17 +204,67 @@ export class McpServerService {
         apiKey: config.apiKey?.trim() || null,
         status: 'disconnected',
         capabilities: JSON.stringify(config.capabilities ?? []),
-      },
-    })
+        lastConnected: null,
+        createdAt: now,
+        updatedAt: now,
+      }
+      this.serverStore.set(row.id, row)
+      logger.info('MCP server created (in-memory fallback)', {
+        serverId: row.id,
+        userId,
+        name: row.name,
+        type: row.type,
+      })
+      return this.mapServer(row)
+    }
 
-    logger.info('MCP server created', {
-      serverId: server.id,
+    const server = await withDbFallback(
+      () =>
+        db.mcpServer.create({
+          data: {
+            userId,
+            name: config.name.trim(),
+            type: config.type,
+            endpoint: config.endpoint.trim(),
+            apiKey: config.apiKey?.trim() || null,
+            status: 'disconnected',
+            capabilities: JSON.stringify(config.capabilities ?? []),
+          },
+        }),
+      null as Awaited<ReturnType<typeof db.mcpServer.create>> | null
+    )
+
+    if (server) {
+      logger.info('MCP server created', {
+        serverId: server.id,
+        userId,
+        name: server.name,
+        type: server.type,
+      })
+      return this.mapServer(server)
+    }
+
+    // DB failed — mirror into in-memory store.
+    const row: InMemoryServerRow = {
+      id: generateId(),
       userId,
-      name: server.name,
-      type: server.type,
+      name: config.name.trim(),
+      type: config.type,
+      endpoint: config.endpoint.trim(),
+      apiKey: config.apiKey?.trim() || null,
+      status: 'disconnected',
+      capabilities: JSON.stringify(config.capabilities ?? []),
+      lastConnected: null,
+      createdAt: now,
+      updatedAt: now,
+    }
+    this.serverStore.set(row.id, row)
+    logger.info('MCP server created (in-memory fallback after DB failure)', {
+      serverId: row.id,
+      name: row.name,
+      type: row.type,
     })
-
-    return this.mapServer(server)
+    return this.mapServer(row)
   }
 
   /**
@@ -163,13 +283,46 @@ export class McpServerService {
     if (patch.capabilities !== undefined) data.capabilities = JSON.stringify(patch.capabilities)
     if (patch.type !== undefined) data.type = patch.type
 
-    const server = await db.mcpServer.update({
-      where: { id: serverId },
-      data,
-    })
+    if (!dbAvailable) {
+      const row = this.serverStore.get(serverId)
+      if (!row) throw new Error(`MCP server not found: ${serverId}`)
+      const updated: InMemoryServerRow = {
+        ...row,
+        ...data,
+        updatedAt: new Date(),
+      } as InMemoryServerRow
+      this.serverStore.set(serverId, updated)
+      logger.info('MCP server updated (in-memory fallback)', {
+        serverId,
+        fields: Object.keys(data),
+      })
+      return this.mapServer(updated)
+    }
 
-    logger.info('MCP server updated', { serverId, fields: Object.keys(data) })
-    return this.mapServer(server)
+    const server = await withDbFallback(
+      () =>
+        db.mcpServer.update({
+          where: { id: serverId },
+          data,
+        }),
+      null as Awaited<ReturnType<typeof db.mcpServer.update>> | null
+    )
+
+    if (server) {
+      logger.info('MCP server updated', { serverId, fields: Object.keys(data) })
+      return this.mapServer(server)
+    }
+
+    // DB failed — mirror update into in-memory store if the row exists.
+    const row = this.serverStore.get(serverId)
+    if (!row) throw new Error(`MCP server not found: ${serverId}`)
+    const mirrored: InMemoryServerRow = {
+      ...row,
+      ...data,
+      updatedAt: new Date(),
+    } as InMemoryServerRow
+    this.serverStore.set(serverId, mirrored)
+    return this.mapServer(mirrored)
   }
 
   /**
@@ -181,7 +334,32 @@ export class McpServerService {
    * Never throws — failures are returned as `{ success: false }`.
    */
   async testConnection(serverId: string): Promise<ConnectionTestResult> {
-    const server = await db.mcpServer.findUnique({ where: { id: serverId } })
+    let server: InMemoryServerRow | null
+
+    if (!dbAvailable) {
+      server = this.serverStore.get(serverId) ?? null
+    } else {
+      const dbServer = await withDbFallback(
+        () => db.mcpServer.findUnique({ where: { id: serverId } }),
+        null as Awaited<ReturnType<typeof db.mcpServer.findUnique>> | null
+      )
+      server = dbServer
+        ? {
+            id: dbServer.id,
+            userId: dbServer.userId,
+            name: dbServer.name,
+            type: dbServer.type,
+            endpoint: dbServer.endpoint,
+            apiKey: dbServer.apiKey,
+            status: dbServer.status,
+            capabilities: dbServer.capabilities,
+            lastConnected: dbServer.lastConnected,
+            createdAt: dbServer.createdAt,
+            updatedAt: dbServer.updatedAt,
+          }
+        : (this.serverStore.get(serverId) ?? null)
+    }
+
     if (!server) {
       return { success: false, message: 'Server not found', serverId }
     }
@@ -200,10 +378,31 @@ export class McpServerService {
         throw new Error(`Unsupported protocol: ${url.protocol}`)
       }
 
-      await db.mcpServer.update({
-        where: { id: serverId },
-        data: { status: 'connected', lastConnected: new Date() },
-      })
+      const patch = {
+        status: 'connected',
+        lastConnected: new Date(),
+      }
+
+      if (!dbAvailable) {
+        const row = this.serverStore.get(serverId)
+        if (row) {
+          this.serverStore.set(serverId, { ...row, ...patch, updatedAt: new Date() })
+        }
+      } else {
+        await withDbFallback(
+          () =>
+            db.mcpServer.update({
+              where: { id: serverId },
+              data: patch,
+            }),
+          null
+        )
+        // Also keep the in-memory mirror in sync.
+        const row = this.serverStore.get(serverId)
+        if (row) {
+          this.serverStore.set(serverId, { ...row, ...patch, updatedAt: new Date() })
+        }
+      }
 
       logger.info('MCP server connected', {
         serverId,
@@ -217,10 +416,27 @@ export class McpServerService {
         serverId,
       }
     } catch (error) {
-      await db.mcpServer.update({
-        where: { id: serverId },
-        data: { status: 'error' },
-      })
+      const patch = { status: 'error' }
+
+      if (!dbAvailable) {
+        const row = this.serverStore.get(serverId)
+        if (row) {
+          this.serverStore.set(serverId, { ...row, ...patch, updatedAt: new Date() })
+        }
+      } else {
+        await withDbFallback(
+          () =>
+            db.mcpServer.update({
+              where: { id: serverId },
+              data: patch,
+            }),
+          null
+        )
+        const row = this.serverStore.get(serverId)
+        if (row) {
+          this.serverStore.set(serverId, { ...row, ...patch, updatedAt: new Date() })
+        }
+      }
 
       const reason =
         error instanceof Error ? error.message : 'Unknown connection error'
@@ -242,10 +458,29 @@ export class McpServerService {
    * Disconnect an MCP server without deleting its config.
    */
   async disconnect(serverId: string): Promise<void> {
-    await db.mcpServer.update({
-      where: { id: serverId },
-      data: { status: 'disconnected' },
-    })
+    const patch = { status: 'disconnected' as const }
+
+    if (!dbAvailable) {
+      const row = this.serverStore.get(serverId)
+      if (row) {
+        this.serverStore.set(serverId, { ...row, ...patch, updatedAt: new Date() })
+      }
+      logger.info('MCP server disconnected (in-memory fallback)', { serverId })
+      return
+    }
+
+    await withDbFallback(
+      () =>
+        db.mcpServer.update({
+          where: { id: serverId },
+          data: patch,
+        }),
+      null
+    )
+    const row = this.serverStore.get(serverId)
+    if (row) {
+      this.serverStore.set(serverId, { ...row, ...patch, updatedAt: new Date() })
+    }
     logger.info('MCP server disconnected', { serverId })
   }
 
@@ -253,7 +488,18 @@ export class McpServerService {
    * Permanently remove an MCP server.
    */
   async deleteServer(serverId: string): Promise<void> {
-    await db.mcpServer.delete({ where: { id: serverId } })
+    if (!dbAvailable) {
+      this.serverStore.delete(serverId)
+      logger.info('MCP server deleted (in-memory fallback)', { serverId })
+      return
+    }
+
+    await withDbFallback(
+      () => db.mcpServer.delete({ where: { id: serverId } }),
+      null
+    )
+    // Always also clear the in-memory mirror so the two stay in sync.
+    this.serverStore.delete(serverId)
     logger.info('MCP server deleted', { serverId })
   }
 
@@ -294,8 +540,9 @@ export class McpServerService {
   }
 
   /**
-   * Map a raw Prisma row to the public McpServerConfig shape, parsing the
-   * JSON-encoded `capabilities` field and normalising the type/status enums.
+   * Map a raw Prisma row (or our in-memory row) to the public
+   * McpServerConfig shape, parsing the JSON-encoded `capabilities` field
+   * and normalising the type/status enums.
    */
   private mapServer(s: {
     id: string

@@ -3,6 +3,7 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { logger, handleApiError } from '@/lib/logger'
 import { skillsEngine } from '@/lib/hermes-v2/skills-engine'
 import { SEED_SKILLS } from '@/lib/hermes-v2/seed-skills'
+import { dbAvailable } from '@/lib/db'
 
 /**
  * HERMES Seed API
@@ -13,6 +14,12 @@ import { SEED_SKILLS } from '@/lib/hermes-v2/seed-skills'
  *     - If a skill with the same `name` already exists, skip it.
  *     - Otherwise, create it.
  *   Returns the list of created + skipped skill names.
+ *
+ * Vercel fallback: When the database is unavailable (Vercel serverless /
+ * SQLite not persistent), the seed is mirrored into the in-memory
+ * `skillsStore` inside the skills engine. The engine auto-seeds on first
+ * access, so this route reports success either way (`mode: 'db' |
+ * 'in-memory'`) — no error is ever surfaced to the caller.
  *
  * Useful for first-run setup or resetting the catalog after a db wipe.
  */
@@ -37,13 +44,18 @@ export async function POST(request: NextRequest) {
       created.push(seed.name)
     }
 
-    logger.info('HERMES seed completed', { created: created.length, skipped: skipped.length })
+    logger.info('HERMES seed completed', {
+      created: created.length,
+      skipped: skipped.length,
+      mode: dbAvailable ? 'db' : 'in-memory',
+    })
 
     return NextResponse.json({
       success: true,
       created,
       skipped,
       total: SEED_SKILLS.length,
+      mode: dbAvailable ? 'db' : 'in-memory',
     })
   } catch (error) {
     const { error: msg, status } = handleApiError(
@@ -74,6 +86,7 @@ export async function GET(request: NextRequest) {
       seeds: status,
       presentCount: status.filter((s) => s.present).length,
       totalCount: SEED_SKILLS.length,
+      mode: dbAvailable ? 'db' : 'in-memory',
     })
   } catch (error) {
     const { error: msg, status } = handleApiError(

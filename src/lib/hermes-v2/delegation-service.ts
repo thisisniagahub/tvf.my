@@ -13,9 +13,16 @@
  *   `delegateBatch` uses `Promise.allSettled` and caps concurrent
  *   in-flight subagents at 3 to keep AI-tier rate limits and memory
  *   pressure under control.
+ *
+ * Vercel fallback: On Vercel serverless, SQLite is not persistent.
+ * When the DB is unavailable (or a query fails at runtime), every
+ * persistence operation transparently falls back to an in-memory
+ * `Map` keyed by subagent id. The AI call itself is unaffected (it
+ * goes through z-ai-web-dev-sdk), so subagents still execute and
+ * report results — they just don't survive across deployments.
  */
 
-import { db } from '@/lib/db'
+import { db, dbAvailable, withDbFallback } from '@/lib/db'
 import { logger } from '@/lib/logger'
 
 // ============== Types ==============
@@ -101,6 +108,116 @@ function rowToRecord(row: SubagentRow): SubagentRecord {
   }
 }
 
+// ============== In-Memory Fallback Store ==============
+
+/** Generate a cuid-ish id without pulling in a dependency. */
+function generateId(): string {
+  return `sub_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+/**
+ * In-memory subagent store keyed by subagent id. Used only when the DB
+ * is unavailable (Vercel serverless / first runtime failure).
+ */
+const subagentStore = new Map<string, SubagentRow>()
+
+/** Persist a subagent row either to the DB or to the in-memory store. */
+async function persistSubagentCreate(
+  row: SubagentRow
+): Promise<SubagentRow> {
+  if (!dbAvailable) {
+    subagentStore.set(row.id, row)
+    return row
+  }
+
+  const created = await withDbFallback(
+    () =>
+      db.hermesSubagent.create({
+        data: {
+          userId: row.userId,
+          parentId: row.parentId,
+          goal: row.goal,
+          context: row.context,
+          toolsets: row.toolsets,
+          maxIterations: row.maxIterations,
+          timeout: row.timeout,
+          status: row.status,
+        },
+      }),
+    null as Awaited<ReturnType<typeof db.hermesSubagent.create>> | null
+  )
+
+  if (created) {
+    return {
+      id: created.id,
+      parentId: created.parentId,
+      userId: created.userId,
+      goal: created.goal,
+      context: created.context,
+      toolsets: created.toolsets,
+      status: created.status,
+      result: created.result,
+      maxIterations: created.maxIterations,
+      timeout: created.timeout,
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt,
+      completedAt: created.completedAt,
+    }
+  }
+
+  // DB failed — mirror into in-memory store.
+  subagentStore.set(row.id, row)
+  return row
+}
+
+/** Update a subagent row either in the DB or in the in-memory store. */
+async function persistSubagentUpdate(
+  id: string,
+  patch: Partial<SubagentRow>
+): Promise<SubagentRow | null> {
+  if (!dbAvailable) {
+    const row = subagentStore.get(id)
+    if (!row) return null
+    const updated: SubagentRow = { ...row, ...patch, updatedAt: new Date() }
+    subagentStore.set(id, updated)
+    return updated
+  }
+
+  const updated = await withDbFallback(
+    () =>
+      db.hermesSubagent.update({
+        where: { id },
+        data: patch,
+      }),
+    null as Awaited<ReturnType<typeof db.hermesSubagent.update>> | null
+  )
+
+  if (updated) {
+    return {
+      id: updated.id,
+      parentId: updated.parentId,
+      userId: updated.userId,
+      goal: updated.goal,
+      context: updated.context,
+      toolsets: updated.toolsets,
+      status: updated.status,
+      result: updated.result,
+      maxIterations: updated.maxIterations,
+      timeout: updated.timeout,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+      completedAt: updated.completedAt,
+    }
+  }
+
+  // DB failed — mirror update into in-memory store if the row exists.
+  const row = subagentStore.get(id)
+  if (!row) return null
+  const mirrored: SubagentRow = { ...row, ...patch, updatedAt: new Date() }
+  subagentStore.set(id, mirrored)
+  return mirrored
+}
+
 // ============== Core Delegation Logic ==============
 
 /**
@@ -169,6 +286,10 @@ async function runSubagentAI(
  * The function never throws — failures are captured in the
  * `DelegationResult.success` flag and `error` string so batch
  * callers (`Promise.allSettled`) can react gracefully.
+ *
+ * Persistence is best-effort: if the DB is unavailable (Vercel
+ * serverless), the same lifecycle is mirrored to an in-memory store
+ * so the returned record is always well-formed.
  */
 export async function delegateSingle(
   config: SubagentConfig
@@ -176,42 +297,59 @@ export async function delegateSingle(
   const userId = config.userId ?? 'demo-user'
   const maxIterations = config.maxIterations ?? 5
   const timeout = config.timeout ?? 60
+  const now = new Date()
 
-  // 1. Create the record
-  const created = await db.hermesSubagent.create({
-    data: {
-      userId,
-      parentId: config.parentId ?? null,
-      goal: config.goal,
-      context: config.context,
-      toolsets: JSON.stringify(config.toolsets ?? []),
-      maxIterations,
-      timeout,
-      status: 'pending',
-    },
-  })
+  // 1. Create the record (DB or in-memory fallback).
+  const createdRow: SubagentRow = {
+    id: dbAvailable ? '' : generateId(), // DB assigns its own id; in-memory needs ours up front
+    parentId: config.parentId ?? null,
+    userId,
+    goal: config.goal,
+    context: config.context,
+    toolsets: JSON.stringify(config.toolsets ?? []),
+    status: 'pending',
+    result: null,
+    maxIterations,
+    timeout,
+    createdAt: now,
+    updatedAt: now,
+    completedAt: null,
+  }
 
-  const record = rowToRecord(created as unknown as SubagentRow)
+  // For the DB path we let Prisma assign the id (cuid). For the in-memory
+  // path we use the id we already generated.
+  let record: SubagentRow
+  if (!dbAvailable) {
+    record = await persistSubagentCreate(createdRow)
+  } else {
+    // Persist with an empty id placeholder; Prisma will assign the real one.
+    const dbRow: SubagentRow = {
+      ...createdRow,
+      id: '', // Prisma generates the real id
+    }
+    record = await persistSubagentCreate(dbRow)
+  }
+
   logger.info('Subagent created', {
     subagentId: record.id,
     parentId: record.parentId,
     goalLength: record.goal.length,
-    toolsets: record.toolsets,
+    toolsets: parseToolsets(record.toolsets),
   })
 
   // 2. Mark as running
-  await db.hermesSubagent.update({
-    where: { id: record.id },
-    data: { status: 'running' },
+  const runningRow = await persistSubagentUpdate(record.id, {
+    status: 'running',
   })
+  const currentRow = runningRow ?? record
 
   // 3. Run the AI with a timeout guard
   try {
     const timeoutMs = timeout * 1000
     const resultPromise = runSubagentAI(
-      record.goal,
-      record.context,
-      record.toolsets
+      currentRow.goal,
+      currentRow.context,
+      parseToolsets(currentRow.toolsets)
     )
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(
@@ -221,39 +359,36 @@ export async function delegateSingle(
     )
     const result = await Promise.race([resultPromise, timeoutPromise])
 
-    const updated = await db.hermesSubagent.update({
-      where: { id: record.id },
-      data: {
-        status: 'completed',
-        result,
-        completedAt: new Date(),
-      },
+    const updated = await persistSubagentUpdate(currentRow.id, {
+      status: 'completed',
+      result,
+      completedAt: new Date(),
     })
 
-    const finalRecord = rowToRecord(updated as unknown as SubagentRow)
+    const finalRecord = updated ?? currentRow
     logger.info('Subagent completed', {
-      subagentId: record.id,
+      subagentId: currentRow.id,
       resultLength: result.length,
     })
-    return { subagent: finalRecord, success: true }
+    return {
+      subagent: rowToRecord(finalRecord),
+      success: true,
+    }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'unknown error'
     logger.warn('Subagent failed', {
-      subagentId: record.id,
+      subagentId: currentRow.id,
       error: errorMessage,
     })
 
-    const updated = await db.hermesSubagent.update({
-      where: { id: record.id },
-      data: {
-        status: 'failed',
-        completedAt: new Date(),
-      },
+    const updated = await persistSubagentUpdate(currentRow.id, {
+      status: 'failed',
+      completedAt: new Date(),
     })
 
-    const finalRecord = rowToRecord(updated as unknown as SubagentRow)
+    const finalRecord = updated ?? currentRow
     return {
-      subagent: finalRecord,
+      subagent: rowToRecord(finalRecord),
       success: false,
       error: errorMessage,
     }
@@ -301,20 +436,85 @@ export async function delegateBatch(
 export async function getSubagents(
   userId: string = 'demo-user'
 ): Promise<SubagentRecord[]> {
-  const rows = await db.hermesSubagent.findMany({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
-    take: 100,
-  })
-  return rows.map((r) => rowToRecord(r as unknown as SubagentRow))
+  if (!dbAvailable) {
+    const rows = Array.from(subagentStore.values())
+      .filter((r) => r.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 100)
+    return rows.map(rowToRecord)
+  }
+
+  const rows = await withDbFallback(
+    () =>
+      db.hermesSubagent.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      }),
+    [] as Awaited<ReturnType<typeof db.hermesSubagent.findMany>>
+  )
+
+  if (rows.length > 0) {
+    return rows.map((r) =>
+      rowToRecord({
+        id: r.id,
+        parentId: r.parentId,
+        userId: r.userId,
+        goal: r.goal,
+        context: r.context,
+        toolsets: r.toolsets,
+        status: r.status,
+        result: r.result,
+        maxIterations: r.maxIterations,
+        timeout: r.timeout,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        completedAt: r.completedAt,
+      })
+    )
+  }
+
+  // DB miss / fallback — include in-memory rows too.
+  const memRows = Array.from(subagentStore.values())
+    .filter((r) => r.userId === userId)
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 100)
+  return memRows.map(rowToRecord)
 }
 
 export async function getSubagent(
   id: string
 ): Promise<SubagentRecord | null> {
-  const row = await db.hermesSubagent.findUnique({ where: { id } })
-  if (!row) return null
-  return rowToRecord(row as unknown as SubagentRow)
+  if (!dbAvailable) {
+    const row = subagentStore.get(id)
+    return row ? rowToRecord(row) : null
+  }
+
+  const row = await withDbFallback(
+    () => db.hermesSubagent.findUnique({ where: { id } }),
+    null as Awaited<ReturnType<typeof db.hermesSubagent.findUnique>> | null
+  )
+
+  if (row) {
+    return rowToRecord({
+      id: row.id,
+      parentId: row.parentId,
+      userId: row.userId,
+      goal: row.goal,
+      context: row.context,
+      toolsets: row.toolsets,
+      status: row.status,
+      result: row.result,
+      maxIterations: row.maxIterations,
+      timeout: row.timeout,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      completedAt: row.completedAt,
+    })
+  }
+
+  const memRow = subagentStore.get(id)
+  return memRow ? rowToRecord(memRow) : null
 }
 
 /**
@@ -326,17 +526,91 @@ export async function getSubagent(
 export async function cancelSubagent(
   id: string
 ): Promise<SubagentRecord | null> {
-  const existing = await db.hermesSubagent.findUnique({ where: { id } })
-  if (!existing) return null
-
-  const updated = await db.hermesSubagent.update({
-    where: { id },
-    data: {
+  if (!dbAvailable) {
+    const row = subagentStore.get(id)
+    if (!row) return null
+    const updated: SubagentRow = {
+      ...row,
       status: 'failed',
       completedAt: new Date(),
-    },
-  })
+      updatedAt: new Date(),
+    }
+    subagentStore.set(id, updated)
+    logger.info('Subagent cancelled (in-memory fallback)', { subagentId: id })
+    return rowToRecord(updated)
+  }
 
-  logger.info('Subagent cancelled', { subagentId: id })
-  return rowToRecord(updated as unknown as SubagentRow)
+  const existing = await withDbFallback(
+    () => db.hermesSubagent.findUnique({ where: { id } }),
+    null as Awaited<ReturnType<typeof db.hermesSubagent.findUnique>> | null
+  )
+  if (!existing) {
+    // Also check the in-memory store (in case the subagent was created there).
+    const memRow = subagentStore.get(id)
+    if (!memRow) return null
+    const updated: SubagentRow = {
+      ...memRow,
+      status: 'failed',
+      completedAt: new Date(),
+      updatedAt: new Date(),
+    }
+    subagentStore.set(id, updated)
+    return rowToRecord(updated)
+  }
+
+  const updated = await withDbFallback(
+    () =>
+      db.hermesSubagent.update({
+        where: { id },
+        data: {
+          status: 'failed',
+          completedAt: new Date(),
+        },
+      }),
+    null as Awaited<ReturnType<typeof db.hermesSubagent.update>> | null
+  )
+
+  if (updated) {
+    logger.info('Subagent cancelled', { subagentId: id })
+    return rowToRecord({
+      id: updated.id,
+      parentId: updated.parentId,
+      userId: updated.userId,
+      goal: updated.goal,
+      context: updated.context,
+      toolsets: updated.toolsets,
+      status: updated.status,
+      result: updated.result,
+      maxIterations: updated.maxIterations,
+      timeout: updated.timeout,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+      completedAt: updated.completedAt,
+    })
+  }
+
+  // DB failed — mirror the cancellation into the in-memory store.
+  const memRow = subagentStore.get(id) ?? {
+    id: existing.id,
+    parentId: existing.parentId,
+    userId: existing.userId,
+    goal: existing.goal,
+    context: existing.context,
+    toolsets: existing.toolsets,
+    status: existing.status,
+    result: existing.result,
+    maxIterations: existing.maxIterations,
+    timeout: existing.timeout,
+    createdAt: existing.createdAt,
+    updatedAt: existing.updatedAt,
+    completedAt: existing.completedAt,
+  }
+  const mirrored: SubagentRow = {
+    ...memRow,
+    status: 'failed',
+    completedAt: new Date(),
+    updatedAt: new Date(),
+  }
+  subagentStore.set(id, mirrored)
+  return rowToRecord(mirrored)
 }
