@@ -115,7 +115,7 @@ export class CredentialStore {
   ): Promise<StoredCredential | null> {
     // Try DB first.
     if (dbAvailable) {
-      const record = await withDbFallback(
+      const record: any = await withDbFallback(
         () => db.agentCredential.findFirst({ where: { id, userId } }),
         null
       )
@@ -151,7 +151,7 @@ export class CredentialStore {
     platform: string
   ): Promise<StoredCredential[]> {
     if (dbAvailable) {
-      const records = await withDbFallback(
+      const records: any[] = await withDbFallback(
         () => db.agentCredential.findMany({ where: { userId, platform } }),
         [] as Awaited<ReturnType<typeof db.agentCredential.findMany>>
       )
@@ -201,7 +201,7 @@ export class CredentialStore {
    */
   async listCredentials(userId: string): Promise<CredentialSummary[]> {
     if (dbAvailable) {
-      const records = await withDbFallback(
+      const records: any[] = await withDbFallback(
         () =>
           db.agentCredential.findMany({
             where: { userId },

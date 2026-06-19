@@ -178,7 +178,7 @@ export class PluginService {
       return rows.map((p) => this.mapPlugin(p))
     }
 
-    const plugins = await withDbFallback(
+    const plugins: any[] = await withDbFallback(
       () =>
         db.plugin.findMany({
           where: { userId },
@@ -265,7 +265,7 @@ export class PluginService {
       return this.mapPlugin(row)
     }
 
-    const existing = await withDbFallback(
+    const existing: any = await withDbFallback(
       () =>
         db.plugin.findFirst({
           where: { userId, name: catalogPlugin.name },
@@ -428,7 +428,7 @@ export class PluginService {
       [] as { name: string }[]
     )
 
-    const names = new Set<string>(installed.map((p) => p.name))
+    const names = new Set<string>((installed as any[]).map((p: any) => p.name))
     // Also include in-memory installs (mixed mode).
     for (const p of this.pluginStore.values()) {
       if (p.userId === userId) names.add(p.name)

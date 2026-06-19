@@ -119,7 +119,7 @@ export class MemoryService {
       return rows.slice().sort(byNewest).slice(0, 50).map(toMemoryEntry)
     }
 
-    const memories = await withDbFallback(
+    const memories: any[] = await withDbFallback(
       () =>
         db.agentMemory.findMany({
           where: { userId, type: 'agent' },
@@ -151,7 +151,7 @@ export class MemoryService {
       return rows.slice().sort(byNewest).slice(0, 30).map(toMemoryEntry)
     }
 
-    const memories = await withDbFallback(
+    const memories: any[] = await withDbFallback(
       () =>
         db.agentMemory.findMany({
           where: { userId, type: 'user' },
@@ -215,7 +215,7 @@ export class MemoryService {
       return
     }
 
-    const created = await withDbFallback(
+    const created: any = await withDbFallback(
       () =>
         db.agentMemory.create({
           data: { userId, type, content, tags: serializeTags(tags) },
@@ -260,7 +260,7 @@ export class MemoryService {
       return rows.reduce((sum, m) => sum + m.content.length, 0)
     }
 
-    const memories = await withDbFallback(
+    const memories: any[] = await withDbFallback(
       () =>
         db.agentMemory.findMany({
           where: { userId, type },
@@ -311,7 +311,7 @@ export class MemoryService {
       return
     }
 
-    const memories = await withDbFallback(
+    const memories: any[] = await withDbFallback(
       () =>
         db.agentMemory.findMany({
           where: { userId, type },

@@ -130,7 +130,7 @@ async function persistSubagentCreate(
     return row
   }
 
-  const created = await withDbFallback(
+  const created: any = await withDbFallback(
     () =>
       db.hermesSubagent.create({
         data: {
@@ -183,7 +183,7 @@ async function persistSubagentUpdate(
     return updated
   }
 
-  const updated = await withDbFallback(
+  const updated: any = await withDbFallback(
     () =>
       db.hermesSubagent.update({
         where: { id },
@@ -444,7 +444,7 @@ export async function getSubagents(
     return rows.map(rowToRecord)
   }
 
-  const rows = await withDbFallback(
+  const rows: any[] = await withDbFallback(
     () =>
       db.hermesSubagent.findMany({
         where: { userId },
@@ -540,7 +540,7 @@ export async function cancelSubagent(
     return rowToRecord(updated)
   }
 
-  const existing = await withDbFallback(
+  const existing: any = await withDbFallback(
     () => db.hermesSubagent.findUnique({ where: { id } }),
     null as Awaited<ReturnType<typeof db.hermesSubagent.findUnique>> | null
   )
@@ -558,7 +558,7 @@ export async function cancelSubagent(
     return rowToRecord(updated)
   }
 
-  const updated = await withDbFallback(
+  const updated: any = await withDbFallback(
     () =>
       db.hermesSubagent.update({
         where: { id },

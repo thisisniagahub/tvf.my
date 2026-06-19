@@ -170,7 +170,7 @@ export class SkillsEngine {
       return rows.map((s) => this.mapSkill(s))
     }
 
-    const skills = await withDbFallback(
+    const skills: any[] = await withDbFallback(
       () =>
         db.hermesSkill.findMany({
           where: { status: 'active', ...(category ? { category } : {}) },

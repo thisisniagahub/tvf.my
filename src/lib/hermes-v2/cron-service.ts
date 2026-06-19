@@ -470,7 +470,7 @@ export async function scheduleJob(
     return rowToRecord(row)
   }
 
-  const created = await withDbFallback(
+  const created: any = await withDbFallback(
     () =>
       db.hermesCronJob.create({
         data: {
@@ -546,7 +546,7 @@ export async function activateJob(jobId: string): Promise<CronJobRecord> {
     return rowToRecord(updated)
   }
 
-  const existing = await withDbFallback(
+  const existing: any = await withDbFallback(
     () => db.hermesCronJob.findUnique({ where: { id: jobId } }),
     null as Awaited<ReturnType<typeof db.hermesCronJob.findUnique>> | null
   )
@@ -555,7 +555,7 @@ export async function activateJob(jobId: string): Promise<CronJobRecord> {
     throw new Error('Cannot activate job without a parsed cron expression')
   }
   const nextRun = computeNextRun(existing.cronExpression) ?? undefined
-  const updated = await withDbFallback(
+  const updated: any = await withDbFallback(
     () =>
       db.hermesCronJob.update({
         where: { id: jobId },
@@ -751,7 +751,7 @@ export async function getJobs(
     return rows.map(rowToRecord)
   }
 
-  const rows = await withDbFallback(
+  const rows: any[] = await withDbFallback(
     () =>
       db.hermesCronJob.findMany({
         where: systemLevel ? {} : { userId },
@@ -819,7 +819,7 @@ export async function updateJobStatus(
     return rowToRecord(updated)
   }
 
-  const existing = await withDbFallback(
+  const existing: any = await withDbFallback(
     () => db.hermesCronJob.findUnique({ where: { id: jobId } }),
     null as Awaited<ReturnType<typeof db.hermesCronJob.findUnique>> | null
   )
@@ -830,7 +830,7 @@ export async function updateJobStatus(
       ? computeNextRun(existing.cronExpression) ?? undefined
       : null
 
-  const updated = await withDbFallback(
+  const updated: any = await withDbFallback(
     () =>
       db.hermesCronJob.update({
         where: { id: jobId },

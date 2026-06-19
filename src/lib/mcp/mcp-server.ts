@@ -144,7 +144,7 @@ export class McpServerService {
       return rows.map((s) => this.mapServer(s))
     }
 
-    const servers = await withDbFallback(
+    const servers: any[] = await withDbFallback(
       () =>
         db.mcpServer.findMany({
           where: { userId },
