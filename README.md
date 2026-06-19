@@ -1,61 +1,52 @@
-# TheViralFindsMY — AI-Powered Shopee Affiliate Manager Pro
+# TheViralFindsMY — AI-Powered Multi-Platform Affiliate Manager Pro
 
-> The only AI-powered platform built exclusively for Malaysian Shopee affiliates. Discover trending products, generate Manglish-perfect captions, and track every commission in real-time. 🇲🇾
+> The only AI-powered platform built exclusively for Malaysian affiliates. Track 8M+ products across Shopee, TikTok Shop & Lazada. Generate Manglish captions. Auto-post to 8 social media platforms. 🇲🇾
+
+**Live:** [theviralfinds.my](https://theviralfinds.my) | **Repo:** [github.com/thisisniagahub/tvf.my](https://github.com/thisisniagahub/tvf.my)
 
 ## ✨ Features
 
-### Core (7 Pages)
-- **Dashboard** — Real-time earnings, clicks, conversions with live activity feed + animated counters
-- **Products** — 12+ Malaysian market products with HOT/XTRA badges + skeleton loading
-- **Affiliate Links** — Manage and track affiliate links with CVR analytics
-- **Analytics** — Revenue charts, traffic sources, geographic distribution
-- **Calculator** — Commission calculator with XTRA boost projections
-- **Campaigns** — Campaign management with ROAS tracking + stagger animations
-- **Earnings** — Multi-platform earnings with withdrawal management
+### Multi-Platform Affiliate Management
+- **Shopee** (12 products) + **TikTok Shop** (8 products) + **Lazada** (8 products) = 28 tracked products
+- **Shopee Live** (up to 80% commission) + **Unified Earnings** + **Platform Compare**
+- Commission calculator with XTRA boost projections
 
-### AI Powered (11 Pages)
-- **HERMES AI Hub** — AI chat with memory + skills + tasks + automations + subagents
-- **Trend Spy** — Real-time trending products with velocity heatmap
-- **Content Studio** — AI script generator + TTS voiceover studio (7 voices)
-- **AI Thumbnails** — Real AI image generation for product thumbnails
-- **Profit Optimizer** — AI recommendations for commission optimization
-- Plus: Product Matcher, AI Recommender, AI Calendar, Hashtag AI, Audience AI, A/B Testing
-
-### Platforms (5) | Advanced (7) | Growth (6)
-- Shopee, TikTok Shop, Lazada, Shopee Live (80% commission), Unified Earnings, Compare
-- Auto Post, XTRA Alerts, Pricing, Marketplace, Team Dashboard, White-Label, API Keys
-- Leaderboard, Achievements, Referrals, Notifications, Settings (7 tabs including About)
-
-### HERMES v2 Agent
-- **Memory System** — Agent memory (2200 chars) + user profile (1375 chars) with auto-consolidation
+### HERMES v2 AI Agent
+- **Memory System** — Agent memory (2200 chars) + user profile (1375 chars) with AI consolidation
 - **Skills System v2** — Dynamic skills with regex auto-detection, 4 seed affiliate skills
-- **Cron Automation** — Natural language scheduling ("every 2h", "daily 9am")
+- **Cron Automation** — Natural language scheduling ("every 2h", "daily 9am") + Vercel Cron
 - **Subagent Delegation** — Single + batch (max 3 concurrent) with isolated context
 - **Tool Gateway** — Web search, image gen, TTS, web reader via z-ai-web-dev-sdk
 
-### Productivity Features
-- ⌨️ **Command Palette** (Cmd+K) — Global search across pages + content (products, links, campaigns)
-- 🎯 **Focus Mode** (F key) — Hide sidebar for distraction-free work
-- 📝 **Keyboard Shortcuts** — G+X navigation (12 pages), B/F/? direct, ↑↓ Enter Tab in palette
-- 🎉 **Confetti Celebrations** — On live sale notifications
-- 🔔 **Live Notifications** — WebSocket + fallback simulation + notification sounds
-- 📊 **Animated Number Counters** — Count-up on stat cards
-- 🎨 **Dark/Light Theme** — With animated preview
-- 📱 **Mobile FAB** — Command palette access on mobile
-- 📋 **Changelog Modal** — Auto-shows new features on update
-- 💾 **Settings Export/Import** — JSON-based portability + Reset all settings
-- 🍞 **Celebration Toasts** — Custom gradient toast for sales
-- 🧭 **Breadcrumb Trail** — Header showing page hierarchy
-- 🔥 **Frequently Visited** — Command palette section based on visit count
-- 🦴 **Skeleton Loading** — On all data-fetching pages
+### Computer-Use Agent (Kimi-Style Split-Screen)
+- Split-screen workspace with virtual browser canvas
+- VLA Loop: Screenshot → LLM → Action → Repeat
+- 6 automation tasks: No-API data sync, TikTok trend spy, auto-content deploy
+- MCP Server Config: Connect Hermes Agent / OpenClaw / Custom endpoints
+- Plugin System: 5 pre-built automation plugins
+
+### Social Media Management (8 Platforms)
+- Facebook, Instagram, TikTok, Twitter, YouTube, LinkedIn, WhatsApp, Telegram
+- Social Dashboard, Content Scheduler, Social Analytics, Connected Accounts
+
+### 40 Pages Across 6 Categories
+- **Core (7):** Dashboard, Products, Links, Analytics, Calculator, Campaigns, Earnings
+- **AI Powered (11):** HERMES Hub, Trend Spy, Profit Optimizer, Content Studio, Product Matcher, AI Recommender, AI Thumbnails, AI Calendar, Hashtag AI, Audience AI, A/B Testing
+- **Platforms (5):** TikTok Shop, Lazada, Shopee Live, Unified Earnings, Compare
+- **Advanced (7):** Auto Post, XTRA Alerts, Pricing, Marketplace, Team Dashboard, White-Label, API Keys
+- **Growth (6):** Leaderboard, Achievements, Referrals, HERMES Hub, Notifications, Settings
+- **Social Media (4):** Social Dashboard, Content Scheduler, Social Analytics, Connected Accounts
+
+### Productivity & UX
+- ⌨️ **Command Palette** (Cmd+K) — Global search across pages + content
+- 🎯 **Focus Mode** (F) — Hide sidebar for distraction-free work
+- 📝 **Keyboard Shortcuts** — G+X navigation (12 pages), B/F/?/ direct shortcuts
+- 🎉 **Confetti** + notification sounds on live sales
+- 🎨 **Dark/Light Theme** with animated preview
+- 📱 **Mobile FAB** + responsive (Galaxy Z Fold supported)
+- 🦴 **Skeleton Loading** on all data-fetching pages
 
 ## 🚀 Quick Start
-
-### Prerequisites
-- Node.js 18+ or Bun
-- SQLite (default)
-
-### Installation
 
 ```bash
 # Install dependencies
@@ -74,91 +65,85 @@ bun run dev
 
 Visit `http://localhost:3000` — click "Continue with demo account".
 
-### Available Scripts
+## 📋 Scripts
 
 | Script | Description |
 |--------|-------------|
 | `bun run dev` | Start dev server (port 3000) |
+| `bun run build` | Production build |
 | `bun run lint` | Run ESLint |
-| `bun run test` | Run unit tests (320 tests) |
-| `bun run test:watch` | Run tests in watch mode |
-| `bun run test:coverage` | Run tests with coverage report |
+| `bun run test` | Run 320 unit tests (Vitest) |
+| `bun run test:coverage` | Tests with coverage report |
 | `bun run db:push` | Push Prisma schema to database |
-| `bun run db:generate` | Regenerate Prisma client |
 
 ## 🏗️ Architecture
 
 ```
 src/
 ├── app/
-│   ├── api/              # 20+ API routes (rate-limited + Zod-validated)
+│   ├── api/              # 29 API routes (7 ISR, 22 force-dynamic)
+│   │   ├── ai/           # AI image gen + TTS
+│   │   ├── agent/        # VLA loop, credentials, tasks
+│   │   ├── auth/         # NextAuth v4
+│   │   ├── content/      # AI script generation
+│   │   ├── hermes/       # Chat, memory, skills, cron, delegate, tools, seed
+│   │   ├── mcp/          # MCP servers + plugins
+│   │   ├── dashboard/    # Dashboard stats (ISR 60s)
+│   │   ├── products/     # Product listing (ISR 60s)
+│   │   ├── search/       # Global search (ISR 30s)
+│   │   └── trends/       # Trend data (ISR 60s)
 │   ├── page.tsx          # SPA entry (Zustand-driven routing)
-│   └── globals.css       # Tailwind 4 + theme variables
+│   └── globals.css       # Tailwind 4 + theme + WCAG + 3D utilities
 ├── components/
-│   ├── auth/             # Landing page, onboarding
+│   ├── agent-workspace/  # Split-screen + virtual browser + VLA
+│   ├── auth/             # Landing page (Retro-Futuristic Engine theme)
 │   ├── layout/           # Sidebar, header, mobile nav, app shell
-│   ├── modals/           # Command palette, changelog, shortcuts, etc.
-│   ├── pages/            # 36 page components (lazy-loaded)
-│   └── ui/               # 46+ shadcn/ui + AnimatedNumber + SmartImage
-├── hooks/                # use-live-notifications, use-keyboard-shortcuts
+│   ├── modals/           # Command palette, changelog, shortcuts, legal
+│   ├── pages/            # 40 page components (lazy-loaded)
+│   └── ui/               # 46+ shadcn/ui + Logo + MagicCard + SmartImage
+├── hooks/                # use-live-notifications, use-keyboard-shortcuts, use-agent-browser
 ├── lib/
-│   ├── hermes-v2/        # Memory, Skills, Cron, Delegation, ToolGateway
-│   ├── confetti.ts       # Confetti celebrations
-│   ├── demo-data.ts      # Malaysian market demo data
-│   ├── env.ts            # Environment variable validation
+│   ├── agent-v2/         # VLA Loop, Task Definitions, Credential Store (AES-256-GCM)
+│   ├── hermes-v2/        # Memory, Skills, Cron, Delegation, Tool Gateway, Seed Skills
+│   ├── mcp/              # MCP Server + Plugin Registry
+│   ├── auth-config.ts    # NextAuth configuration
+│   ├── auth.ts           # requireUser() / requireAuth() wrappers
+│   ├── crypto.ts         # AES-256-GCM encryption
+│   ├── db.ts             # Prisma client with type-safe fallback
 │   ├── logger.ts         # Structured logger
 │   ├── rate-limit.ts     # Token bucket rate limiter
-│   ├── sounds.ts         # Web Audio API notification sounds
-│   ├── types.ts          # TypeScript interfaces
-│   ├── utils.ts          # cn() utility
+│   ├── route-config.ts   # ISR vs force-dynamic presets
 │   └── validation.ts     # 9 Zod schemas
 ├── store/app-store.ts    # Zustand store (persisted)
 └── test/setup.ts         # Vitest setup
 ```
 
-## 🔧 Configuration
+## 🔒 Security
 
-### Environment Variables
-
-See [`.env.example`](.env.example) for all variables. Required:
-- `DATABASE_URL` — Database connection string
-- `NEXTAUTH_SECRET` — Auth secret (generate with `openssl rand -base64 32`)
-
-### Rate Limiting
-
-| Route Type | Limit | Window |
-|-----------|-------|--------|
-| Auth | 5 req | per minute |
-| Standard API | 100 req | per minute |
-| AI Generation | 10 req | per minute |
-| Search | 30 req | per minute |
-
-### Keyboard Shortcuts
-
-Press `?` to view the full cheat sheet. Key shortcuts:
-- `Cmd+K` — Command palette
-- `G then D/P/L/A/E/C/M/T/H/S/N/O` — Navigate to pages
-- `B` — Toggle sidebar | `F` — Focus mode | `/` — Focus search
+- ✅ NextAuth v4 authentication on all API routes
+- ✅ AES-256-GCM encryption for credentials & MCP API keys
+- ✅ SSRF protection (blocks internal IPs, AWS/GCP metadata)
+- ✅ 6 security headers (HSTS, X-Frame-Options, CSP, etc.)
+- ✅ Rate limiting (5-100 req/min per route type)
+- ✅ Ownership checks on all `[id]` routes
+- ✅ Vercel Cron with CRON_SECRET verification
+- ✅ Zod input validation on all POST routes
+- ✅ Structured logging (no console.log in API routes)
 
 ## 🧪 Testing
 
 ```bash
-# Run all tests (320 tests, 19 files)
-bun run test
-
-# Run with coverage
-bun run test:coverage
-
-# Watch mode
-bun run test:watch
+bun run test          # 320 tests, 19 files
+bun run test:coverage # Coverage report
 ```
 
-## 🤝 Contributing
+## 📄 Documentation
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
-See [PRD.md](PRD.md) for full product requirements.
-See [implementation.md](implementation.md) for implementation plan.
+- [PRD.md](PRD.md) — Product Requirements Document
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Development guidelines
+- [implementation.md](implementation.md) — Implementation plan
+- [worklog.md](worklog.md) — Development history
 
 ## 📄 License
 
-Proprietary — © 2025 TheViralFindsMY. Built with love for Malaysian affiliates. 🇲🇾
+Proprietary — © 2026 TheViralFindsMY. Built for Malaysian affiliates. 🇲🇾
