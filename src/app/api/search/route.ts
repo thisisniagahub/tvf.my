@@ -1,3 +1,5 @@
+export const revalidate = 30
+
 import { NextRequest, NextResponse } from 'next/server'
 import { demoProducts, demoLinks, demoCampaigns } from '@/lib/demo-data'
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit'

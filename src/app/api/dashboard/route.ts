@@ -1,3 +1,5 @@
+export const revalidate = 60
+
 import { NextRequest, NextResponse } from 'next/server'
 import {
   demoEarnings,

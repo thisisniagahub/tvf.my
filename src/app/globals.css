@@ -431,3 +431,210 @@
     animation: none !important;
   }
 }
+
+/* ============ AREA 3: WCAG CONTRAST FIXES FOR GLASS PANELS ============ */
+/* Ensure text on glassmorphic panels meets WCAG AA (4.5:1 minimum) */
+
+/* Glass panel text — high contrast on frosted backgrounds */
+.glass-panel {
+  /* Ensure minimum contrast by darkening the panel slightly */
+  background: rgba(13, 13, 18, 0.75) !important;
+}
+:root:not(.dark) .glass-panel {
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Text on glass panels — boost opacity for WCAG AA */
+.glass-panel .text-muted-foreground,
+.glass-premium .text-muted-foreground {
+  color: oklch(0.65 0.01 240) !important; /* Light mode: darker than default */
+}
+.dark .glass-panel .text-muted-foreground,
+.dark .glass-premium .text-muted-foreground {
+  color: oklch(0.72 0.01 240) !important; /* Dark mode: lighter for contrast */
+}
+
+/* Success/warning text on glass — boost for legibility */
+.glass-panel .text-success,
+.glass-premium .text-success {
+  color: oklch(0.75 0.18 155) !important; /* Brighter green on glass */
+}
+.glass-panel .text-warning,
+.glass-premium .text-warning {
+  color: oklch(0.82 0.17 80) !important; /* Brighter yellow on glass */
+}
+
+/* ============ AREA 4: ANIMATION PERFORMANCE ============ */
+/* GPU-accelerated transforms only — no layout properties */
+
+/* Particles — use will-change for GPU compositing */
+.particle {
+  will-change: transform, opacity;
+  transform: translateZ(0); /* Force GPU layer */
+}
+
+/* Engine pulse — composite-only animation */
+.engine-pulse {
+  will-change: opacity, transform;
+  transform: translateZ(0);
+}
+
+/* Data streams — GPU only */
+.data-stream {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+/* Scan effect — GPU transform only */
+.scan-effect::after {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+/* 3D card tilt — GPU compositing */
+.card-3d,
+.iso-tilt {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* ============ AREA 4: REDUCED MOTION — COMPLETE NULLIFICATION ============ */
+@media (prefers-reduced-motion: reduce) {
+  /* Kill ALL animations — not just decorative */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Specific overrides for 3D transforms */
+  .card-3d:hover,
+  .iso-tilt:hover {
+    transform: none !important;
+  }
+  .animate-float-3d,
+  .animate-float,
+  .engine-pulse,
+  .particle,
+  .data-stream,
+  .scan-effect::after,
+  .alert-bar,
+  .animate-gradient,
+  .animate-mesh,
+  .pulse-ring::before {
+    animation: none !important;
+    opacity: 0.6 !important; /* Show static state */
+  }
+  .word-3d,
+  .section-reveal,
+  .animate-fade-in-up {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Disable 3D perspective on reduced motion */
+  .engine-scene,
+  .perspective-1000,
+  .perspective-2000 {
+    transform: none !important;
+    perspective: none !important;
+  }
+}
+
+/* ============ AREA 2: FOLDABLE/DUAL-SCREEN SUPPORT ============ */
+/* Galaxy Z Fold — folded (280px) and unfolded (768px viewport) */
+
+@media (max-width: 280px) {
+  /* Ultra-narrow — stack everything vertically */
+  .grid-cols-2,
+  .grid-cols-3,
+  .grid-cols-4 {
+    grid-template-columns: 1fr !important;
+  }
+  .flex-wrap {
+    flex-direction: column !important;
+  }
+  /* Header — hide all but essential */
+  header button:not(:first-child):not(:last-child) {
+    display: none !important;
+  }
+}
+
+@media (min-width: 281px) and (max-width: 340px) {
+  /* Small phones — reduce gaps */
+  .gap-4 { gap: 0.5rem !important; }
+  .p-4 { padding: 0.75rem !important; }
+  .p-6 { padding: 1rem !important; }
+}
+
+/* Foldable unfolded — treat as tablet */
+@media (min-width: 768px) and (max-width: 820px) {
+  /* Z Fold inner screen — optimize for wide-narrow */
+  .grid.sm\:grid-cols-2 { grid-template-columns: repeat(2, 1fr) !important; }
+  .grid.lg\:grid-cols-4 { grid-template-columns: repeat(3, 1fr) !important; }
+}
+
+/* ============ AREA 2: HEADER RESPONSIVE FIXES ============ */
+/* Prevent button overlap on tablet widths */
+
+@media (max-width: 1023px) {
+  /* Hide non-essential header buttons below lg */
+  header [title="What's New"],
+  header [title="Keyboard shortcuts"],
+  header [title="Focus Mode"],
+  header [title="Toggle dark mode"] {
+    display: none !important;
+  }
+  /* Search — convert to icon only */
+  header form {
+    max-width: 2.5rem !important;
+  }
+  header form input {
+    opacity: 0;
+    width: 0;
+    padding: 0;
+  }
+  header form:focus-within {
+    max-width: 200px !important;
+    position: absolute;
+    right: 60px;
+    z-index: 50;
+  }
+  header form:focus-within input {
+    opacity: 1;
+    width: 100%;
+    padding: 0 0.5rem 0 2rem;
+  }
+}
+
+/* ============ AREA 2: DASHBOARD CARD OVERFLOW PREVENTION ============ */
+/* Ensure stat cards never overflow on narrow screens */
+
+.stat-card-safe {
+  min-width: 0; /* Allow shrinking */
+  overflow: hidden;
+}
+.stat-card-safe .text-2xl {
+  font-size: clamp(1.25rem, 4vw, 1.5rem); /* Responsive font size */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Quick actions — prevent cramping */
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+@media (min-width: 640px) {
+  .quick-actions-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+}
