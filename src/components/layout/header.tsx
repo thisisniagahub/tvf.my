@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useDeferredValue } from 'react'
 import * as Icons from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from 'next-themes'
@@ -33,6 +33,12 @@ export function Header() {
   const { theme, setTheme } = useTheme()
   const { connected, simulated, events: liveEvents, unreadCount: liveUnread, markAllRead } = useLiveNotifications(liveNotificationsEnabled, notificationSoundEnabled)
   const [search, setSearch] = useState('')
+  // Deferred search query — the input stays responsive to every keystroke,
+  // but the matching work in `handleSearch` (which scans all 40 `navItems`)
+  // runs against the deferred value. On a fast keystroke stream this lets
+  // React drop intermediate matching passes and only do the work for the
+  // settled value, keeping the main thread free for input rendering.
+  const deferredSearch = useDeferredValue(search)
   const [searchFocused, setSearchFocused] = useState(false)
   const [showHint, setShowHint] = useState(true)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -88,15 +94,19 @@ export function Header() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!search.trim()) return
+    // Use the deferred search value so we don't match against a stale
+    // intermediate keystroke if the user hits Enter mid-stream — by submit
+    // time the deferred value has caught up with the latest input.
+    const query = deferredSearch.trim()
+    if (!query) return
     const found = navItems.find((i) =>
-      i.label.toLowerCase().includes(search.toLowerCase())
+      i.label.toLowerCase().includes(query.toLowerCase())
     )
     if (found) {
       setActivePage(found.id)
       toast.success(`Navigated to ${found.label}`)
     } else {
-      toast.error(`No page found for "${search}"`)
+      toast.error(`No page found for "${query}"`)
     }
     setSearch('')
   }

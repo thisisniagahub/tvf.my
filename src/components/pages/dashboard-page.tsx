@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import * as Icons from 'lucide-react'
@@ -50,6 +50,76 @@ const categoryDistribution = [
   { name: 'Home', value: 16, color: 'var(--warning)' },
 ]
 
+/**
+ * Memoized earnings area chart.
+ *
+ * Recharts is ~200 KB and each chart instance is expensive to render. The
+ * parent `DashboardPage` re-renders whenever the live-activity feed ticks
+ * (every new socket event / simulated event), but the underlying earnings
+ * data only changes when the `/api/dashboard` query refetches. Wrapping the
+ * chart in `React.memo` with a single `data` prop means React can skip the
+ * expensive recharts reconciliation when `earningsData` is referentially
+ * unchanged (TanStack Query returns the same array reference between
+ * re-renders while the query is stable).
+ */
+const EarningsChart = memo(function EarningsChart({ data }: { data: Array<{ date: string; earnings: number; clicks?: number; orders?: number }> }) {
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <AreaChart data={data}>
+        <defs>
+          <linearGradient id="earningsGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--shopee)" stopOpacity={0.4} />
+            <stop offset="100%" stopColor="var(--shopee)" stopOpacity={0} />
+          </linearGradient>
+          {/* Secondary soft fill — adds depth without overpowering */}
+          <linearGradient id="earningsGradSoft" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--hermes)" stopOpacity={0.15} />
+            <stop offset="100%" stopColor="var(--hermes)" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} opacity={0.5} />
+        <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" tickLine={false} axisLine={false} interval={4} />
+        <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" tickLine={false} axisLine={false} tickFormatter={(v) => `RM${v}`} />
+        <Tooltip
+          contentStyle={{
+            background: 'var(--card)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            fontSize: '12px',
+            boxShadow: '0 8px 24px -8px rgba(238,77,45,0.25)',
+          }}
+          cursor={{ stroke: 'var(--shopee)', strokeWidth: 1, strokeDasharray: '4 4' }}
+          formatter={(v: number) => [formatRM(v), 'Earnings']}
+        />
+        {/* Soft hermes-hued underlayer for depth */}
+        <Area type="monotone" dataKey="earnings" stroke="none" fill="url(#earningsGradSoft)" />
+        <Area type="monotone" dataKey="earnings" stroke="var(--shopee)" strokeWidth={2} fill="url(#earningsGrad)" activeDot={{ r: 5, fill: 'var(--shopee)', stroke: 'var(--background)', strokeWidth: 2 }} />
+      </AreaChart>
+    </ResponsiveContainer>
+  )
+})
+
+/**
+ * Memoized "Clicks vs Orders" bar chart — same rationale as `EarningsChart`:
+ * the underlying data (last 14 days of earnings/clicks/orders) is stable
+ * between live-activity ticks, so we avoid re-running recharts layout work
+ * on every parent render.
+ */
+const ClicksOrdersChart = memo(function ClicksOrdersChart({ data }: { data: Array<{ date: string; clicks: number; orders: number }> }) {
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+        <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" tickLine={false} axisLine={false} />
+        <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" tickLine={false} axisLine={false} />
+        <Tooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }} />
+        <Bar dataKey="clicks" fill="var(--shopee)" radius={[4, 4, 0, 0]} name="Clicks" />
+        <Bar dataKey="orders" fill="var(--hermes)" radius={[4, 4, 0, 0]} name="Orders" />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+})
+
 export function DashboardPage() {
   const { user, setActivePage } = useAppStore()
   const [hour] = useState(new Date().getHours())
@@ -65,9 +135,20 @@ export function DashboardPage() {
     },
   })
 
-  const earningsData = data?.earnings ?? []
+  // Wrap in useMemo so the array reference is stable across renders when the
+  // query data hasn't changed. Without this, `?? []` would create a fresh
+  // empty array on every render while data is still loading, which would
+  // defeat the `React.memo` shallow-compare on `EarningsChart` and
+  // `ClicksOrdersChart` below.
+  const earningsData = useMemo(() => data?.earnings ?? [], [data])
   const topProducts = data?.topProducts ?? []
   const cardStats = data?.stats ?? { totalEarnings: 5487.32, totalClicks: 2847, conversionRate: 26.4, activeLinks: 42 }
+
+  // Stable slice for the "Clicks vs Orders" chart so that the memoized
+  // `ClicksOrdersChart` doesn't see a fresh array reference on every render.
+  // `.slice(-14)` would otherwise create a new array each render even when
+  // `earningsData` itself is referentially unchanged, defeating `React.memo`.
+  const clicksOrdersData = useMemo(() => earningsData.slice(-14), [earningsData])
 
   // Merge live events with demo activities — live events appear at the top
   const activities = useMemo<DashboardActivity[]>(() => {
@@ -190,38 +271,7 @@ export function DashboardPage() {
             </Badge>
           </div>
           <CardContent className="p-4">
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={earningsData}>
-                <defs>
-                  <linearGradient id="earningsGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--shopee)" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="var(--shopee)" stopOpacity={0} />
-                  </linearGradient>
-                  {/* Secondary soft fill — adds depth without overpowering */}
-                  <linearGradient id="earningsGradSoft" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--hermes)" stopOpacity={0.15} />
-                    <stop offset="100%" stopColor="var(--hermes)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} opacity={0.5} />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" tickLine={false} axisLine={false} interval={4} />
-                <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" tickLine={false} axisLine={false} tickFormatter={(v) => `RM${v}`} />
-                <Tooltip
-                  contentStyle={{
-                    background: 'var(--card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    boxShadow: '0 8px 24px -8px rgba(238,77,45,0.25)',
-                  }}
-                  cursor={{ stroke: 'var(--shopee)', strokeWidth: 1, strokeDasharray: '4 4' }}
-                  formatter={(v: number) => [formatRM(v), 'Earnings']}
-                />
-                {/* Soft hermes-hued underlayer for depth */}
-                <Area type="monotone" dataKey="earnings" stroke="none" fill="url(#earningsGradSoft)" />
-                <Area type="monotone" dataKey="earnings" stroke="var(--shopee)" strokeWidth={2} fill="url(#earningsGrad)" activeDot={{ r: 5, fill: 'var(--shopee)', stroke: 'var(--background)', strokeWidth: 2 }} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <EarningsChart data={earningsData} />
           </CardContent>
         </Card>
 
@@ -396,16 +446,7 @@ export function DashboardPage() {
           <p className="text-xs text-muted-foreground">Daily breakdown — last 14 days</p>
         </div>
         <CardContent className="p-4">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={earningsData.slice(-14)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }} />
-              <Bar dataKey="clicks" fill="var(--shopee)" radius={[4, 4, 0, 0]} name="Clicks" />
-              <Bar dataKey="orders" fill="var(--hermes)" radius={[4, 4, 0, 0]} name="Orders" />
-            </BarChart>
-          </ResponsiveContainer>
+          <ClicksOrdersChart data={clicksOrdersData} />
         </CardContent>
       </Card>
     </div>

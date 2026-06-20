@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useDeferredValue } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import * as Icons from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -29,14 +29,21 @@ export function ProductsPage() {
   const { setActivePage } = useAppStore()
   const [category, setCategory] = useState('All')
   const [search, setSearch] = useState('')
+  // Deferred search query — the input stays responsive to every keystroke
+  // (the visible `search` state updates immediately), but the actual API
+  // fetch is gated behind `deferredSearch`. React defers recomputing the
+  // query until the browser is idle, so rapid typing doesn't fire a fetch
+  // per keystroke. TanStack Query's cache key includes `deferredSearch`,
+  // so the request only re-runs when the deferred value catches up.
+  const deferredSearch = useDeferredValue(search)
   const [selected, setSelected] = useState<Product | null>(null)
 
   const { data, isLoading, isError } = useQuery<ProductsResponse>({
-    queryKey: ['products', category, search],
+    queryKey: ['products', category, deferredSearch],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (category !== 'All') params.set('category', category)
-      if (search) params.set('q', search)
+      if (deferredSearch) params.set('q', deferredSearch)
       const res = await fetch(`/api/products?${params}`)
       if (!res.ok) throw new Error('Failed')
       return res.json() as Promise<ProductsResponse>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, memo, useCallback } from 'react'
 import * as Icons from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { navItems } from '@/lib/demo-data'
@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui/logo'
-import { } from '@/lib/types'
+import type { NavItem as NavItemType, PageCategory, PageId } from '@/lib/types'
 
 const categoryLabels: Record<Exclude<PageCategory, 'pinned'>, string> = {
   core: 'CORE',
@@ -28,10 +28,131 @@ const categoryLabels: Record<Exclude<PageCategory, 'pinned'>, string> = {
 
 const categoryOrder: Exclude<PageCategory, 'pinned'>[] = ['core', 'ai', 'platforms', 'advanced', 'growth']
 
+/**
+ * Memoized sidebar nav item button.
+ *
+ * Previously, every change to `activePage` (or any other store/state field read
+ * by the parent `Sidebar`) caused the `renderItem` closure to re-run for all
+ * 40 nav items — even though only one item's `isActive` flag actually changed.
+ *
+ * By extracting the item into its own `React.memo` component, React now does
+ * a shallow prop comparison and skips re-rendering any item whose props are
+ * unchanged. The `onSelect` and `onPinToggle` callbacks are stable
+ * `useCallback`s in the parent (they only depend on the stable Zustand
+ * actions `setActivePage` and `togglePin`), so memo comparison succeeds for
+ * the 39 items whose `isActive` / `isPinned` flags did not flip.
+ */
+const NavItem = memo(function NavItem({
+  item,
+  isActive,
+  isPinned,
+  sidebarCollapsed,
+  onSelect,
+  onPinToggle,
+}: {
+  item: NavItemType
+  isActive: boolean
+  isPinned: boolean
+  sidebarCollapsed: boolean
+  onSelect: (id: PageId) => void
+  onPinToggle: (id: PageId) => void
+}) {
+  const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[item.icon] ?? Icons.Circle
+
+  if (sidebarCollapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => onSelect(item.id)}
+            className={cn(
+              'relative flex h-10 w-full items-center justify-center rounded-lg transition-all hover:translate-x-0.5',
+              isActive
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+            )}
+          >
+            <Icon className="size-5" />
+            {item.badge && (
+              <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-shopee" />
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">{item.label}</TooltipContent>
+      </Tooltip>
+    )
+  }
+
+  return (
+    <div className="group relative">
+      <button
+        onClick={() => onSelect(item.id)}
+        className={cn(
+          'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all hover:translate-x-0.5',
+          isActive
+            ? 'bg-primary text-primary-foreground shadow-sm'
+            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+        )}
+      >
+        {/* Active indicator bar — gradient strip on the left edge */}
+        {isActive && (
+          <span
+            className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-shopee to-hermes"
+            aria-hidden="true"
+          />
+        )}
+        <Icon className="size-4 shrink-0" />
+        <span className="flex-1 text-left truncate">{item.label}</span>
+        {item.badge && (
+          <Badge
+            variant="secondary"
+            className={cn(
+              'h-5 px-1.5 text-[10px] font-semibold',
+              item.badge === 'AI' && 'bg-hermes/15 text-hermes',
+              item.badge === 'New' && 'bg-success/15 text-success',
+              item.badge === 'PRO' && 'bg-shopee/15 text-shopee',
+              item.badge === 'ENT' && 'bg-warning/15 text-warning',
+              item.badge === 'API' && 'bg-muted text-muted-foreground',
+              item.badge === '80%' && 'bg-shopee/15 text-shopee',
+            )}
+          >
+            {item.badge}
+          </Badge>
+        )}
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onPinToggle(item.id)
+        }}
+        className={cn(
+          'absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 opacity-0 transition-opacity hover:bg-sidebar-accent/60',
+          'group-hover:opacity-100',
+          isPinned && 'opacity-100'
+        )}
+        title={isPinned ? 'Unpin' : 'Pin'}
+      >
+        {isPinned ? (
+          <Icons.PinOff className="size-3 text-muted-foreground" />
+        ) : (
+          <Icons.Pin className="size-3 text-muted-foreground" />
+        )}
+      </button>
+    </div>
+  )
+})
+
 export function Sidebar() {
   const { activePage, setActivePage, sidebarCollapsed, toggleSidebar, pinnedPages, togglePin } = useAppStore()
   const [search, setSearch] = useState('')
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set())
+
+  // Stable click/pin handlers — Zustand actions are referentially stable
+  // across renders, so these `useCallback`s only ever produce one function
+  // instance. That reference stability is what lets the memoized `NavItem`
+  // skip re-rendering when only `activePage` changes.
+  const handleSelect = useCallback((id: PageId) => setActivePage(id), [setActivePage])
+  const handlePinToggle = useCallback((id: PageId) => togglePin(id), [togglePin])
 
   const filteredItems = useMemo(() => {
     if (!search) return navItems
@@ -56,93 +177,17 @@ export function Sidebar() {
       return next
     })
 
-  const renderItem = (item: NonNullable<typeof navItems[number]>) => {
-    const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[item.icon] ?? Icons.Circle
-    const isActive = activePage === item.id
-    const isPinned = pinnedPages.includes(item.id)
-
-    if (sidebarCollapsed) {
-      return (
-        <Tooltip key={item.id}>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => setActivePage(item.id)}
-              className={cn(
-                'relative flex h-10 w-full items-center justify-center rounded-lg transition-all hover:translate-x-0.5',
-                isActive
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-              )}
-            >
-              <Icon className="size-5" />
-              {item.badge && (
-                <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-shopee" />
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right">{item.label}</TooltipContent>
-        </Tooltip>
-      )
-    }
-
-    return (
-      <div key={item.id} className="group relative">
-        <button
-          onClick={() => setActivePage(item.id)}
-          className={cn(
-            'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all hover:translate-x-0.5',
-            isActive
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-          )}
-        >
-          {/* Active indicator bar — gradient strip on the left edge */}
-          {isActive && (
-            <span
-              className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-shopee to-hermes"
-              aria-hidden="true"
-            />
-          )}
-          <Icon className="size-4 shrink-0" />
-          <span className="flex-1 text-left truncate">{item.label}</span>
-          {item.badge && (
-            <Badge
-              variant="secondary"
-              className={cn(
-                'h-5 px-1.5 text-[10px] font-semibold',
-                item.badge === 'AI' && 'bg-hermes/15 text-hermes',
-                item.badge === 'New' && 'bg-success/15 text-success',
-                item.badge === 'PRO' && 'bg-shopee/15 text-shopee',
-                item.badge === 'ENT' && 'bg-warning/15 text-warning',
-                item.badge === 'API' && 'bg-muted text-muted-foreground',
-                item.badge === '80%' && 'bg-shopee/15 text-shopee',
-              )}
-            >
-              {item.badge}
-            </Badge>
-          )}
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            togglePin(item.id)
-          }}
-          className={cn(
-            'absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 opacity-0 transition-opacity hover:bg-sidebar-accent/60',
-            'group-hover:opacity-100',
-            isPinned && 'opacity-100'
-          )}
-          title={isPinned ? 'Unpin' : 'Pin'}
-        >
-          {isPinned ? (
-            <Icons.PinOff className="size-3 text-muted-foreground" />
-          ) : (
-            <Icons.Pin className="size-3 text-muted-foreground" />
-          )}
-        </button>
-      </div>
-    )
-  }
+  const renderItem = (item: NonNullable<typeof navItems[number]>) => (
+    <NavItem
+      key={item.id}
+      item={item}
+      isActive={activePage === item.id}
+      isPinned={pinnedPages.includes(item.id)}
+      sidebarCollapsed={sidebarCollapsed}
+      onSelect={handleSelect}
+      onPinToggle={handlePinToggle}
+    />
+  )
 
   return (
     <TooltipProvider delayDuration={200}>

@@ -14,11 +14,17 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String           @id @default(cuid())
+  email          String           @unique
+  name           String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  agentMemories  AgentMemory[]
+  cronJobs       HermesCronJob[]
+  subagents      HermesSubagent[]
+  mcpServers     McpServer[]
+  credentials    AgentCredential[]
+  plugins        Plugin[]
 }
 
 model Post {
@@ -47,7 +53,10 @@ model AgentMemory {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, type])
+  @@index([userId, type, createdAt])
   @@map("agent_memories")
 }
 
@@ -67,7 +76,13 @@ model HermesSkill {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // NOTE: HermesSkill is intentionally NOT user-scoped — skills are a
+  // shared global catalog (seeded via /api/hermes/seed). A user "uses" a
+  // skill by referencing its id from a HermesCronJob.skills array; we do
+  // not duplicate ownership per user.
+
   @@index([category, status])
+  @@index([status, usageCount])
   @@map("hermes_skills")
 }
 
@@ -90,7 +105,10 @@ model HermesCronJob {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, status])
+  @@index([status, nextRun])
   @@map("hermes_cron_jobs")
 }
 
@@ -112,6 +130,8 @@ model HermesSubagent {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   completedAt   DateTime?
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
   @@map("hermes_subagents")
@@ -135,6 +155,8 @@ model McpServer {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@map("mcp_servers")
 }
@@ -155,6 +177,8 @@ model AgentCredential {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, platform])
   @@map("agent_credentials")
 }
@@ -174,6 +198,8 @@ model Plugin {
   version     String   @default("1.0.0")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, enabled])
   @@map("plugins")
