@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui/logo'
-import type { PageId, PageCategory } from '@/lib/types'
+import { } from '@/lib/types'
 
 const categoryLabels: Record<Exclude<PageCategory, 'pinned'>, string> = {
   core: 'CORE',
