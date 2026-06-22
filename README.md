@@ -14,7 +14,7 @@
 ### HERMES v2 AI Agent
 - **Memory System** — Agent memory (2200 chars) + user profile (1375 chars) with AI consolidation
 - **Skills System v2** — Dynamic skills with regex auto-detection, 4 seed affiliate skills
-- **Cron Automation** — Natural language scheduling ("every 2h", "daily 9am") + Vercel Cron
+- **Cron Automation** — Natural language scheduling + Vercel Cron (every 5 min)
 - **Subagent Delegation** — Single + batch (max 3 concurrent) with isolated context
 - **Tool Gateway** — Web search, image gen, TTS, web reader via z-ai-web-dev-sdk
 
@@ -49,21 +49,11 @@
 ## 🚀 Quick Start
 
 ```bash
-# Install dependencies
 bun install
-
-# Copy environment template
-cp .env.example .env
-# Set NEXTAUTH_SECRET: openssl rand -base64 32
-
-# Push database schema
+cp .env.example .env  # Set NEXTAUTH_SECRET: openssl rand -base64 32
 bun run db:push
-
-# Start development server
 bun run dev
 ```
-
-Visit `http://localhost:3000` — click "Continue with demo account".
 
 ## 📋 Scripts
 
@@ -72,7 +62,7 @@ Visit `http://localhost:3000` — click "Continue with demo account".
 | `bun run dev` | Start dev server (port 3000) |
 | `bun run build` | Production build |
 | `bun run lint` | Run ESLint |
-| `bun run test` | Run 320 unit tests (Vitest) |
+| `bun run test` | Run 394 unit tests (Vitest, 25 files) |
 | `bun run test:coverage` | Tests with coverage report |
 | `bun run db:push` | Push Prisma schema to database |
 
@@ -81,47 +71,48 @@ Visit `http://localhost:3000` — click "Continue with demo account".
 ```
 src/
 ├── app/
-│   ├── api/              # 29 API routes (7 ISR, 22 force-dynamic)
+│   ├── api/              # 30 API routes (7 ISR, 23 force-dynamic)
 │   │   ├── ai/           # AI image gen + TTS
 │   │   ├── agent/        # VLA loop, credentials, tasks
-│   │   ├── auth/         # NextAuth v4
+│   │   ├── auth/         # NextAuth v4 + CSRF
 │   │   ├── content/      # AI script generation
 │   │   ├── hermes/       # Chat, memory, skills, cron, delegate, tools, seed
 │   │   ├── mcp/          # MCP servers + plugins
-│   │   ├── dashboard/    # Dashboard stats (ISR 60s)
-│   │   ├── products/     # Product listing (ISR 60s)
-│   │   ├── search/       # Global search (ISR 30s)
-│   │   └── trends/       # Trend data (ISR 60s)
+│   │   └── ...           # dashboard, products, search, trends
 │   ├── page.tsx          # SPA entry (Zustand-driven routing)
 │   └── globals.css       # Tailwind 4 + theme + WCAG + 3D utilities
 ├── components/
 │   ├── agent-workspace/  # Split-screen + virtual browser + VLA
 │   ├── auth/             # Landing page (Retro-Futuristic Engine theme)
-│   ├── layout/           # Sidebar, header, mobile nav, app shell
+│   ├── layout/           # Sidebar (React.memo), header, mobile nav
 │   ├── modals/           # Command palette, changelog, shortcuts, legal
 │   ├── pages/            # 40 page components (lazy-loaded)
+│   │   ├── settings/     # 7 sub-components (profile, notifications, etc.)
+│   │   └── content-studio/ # 2 sub-components (script-generator, voiceover-studio)
 │   └── ui/               # 46+ shadcn/ui + Logo + MagicCard + SmartImage
 ├── hooks/                # use-live-notifications, use-keyboard-shortcuts, use-agent-browser
 ├── lib/
 │   ├── agent-v2/         # VLA Loop, Task Definitions, Credential Store (AES-256-GCM)
-│   ├── hermes-v2/        # Memory, Skills, Cron, Delegation, Tool Gateway, Seed Skills
+│   ├── hermes-v2/        # Memory, Skills, Cron, Delegation, Tool Gateway
 │   ├── mcp/              # MCP Server + Plugin Registry
 │   ├── auth-config.ts    # NextAuth configuration
 │   ├── auth.ts           # requireUser() / requireAuth() wrappers
 │   ├── crypto.ts         # AES-256-GCM encryption
+│   ├── csrf.ts           # CSRF token generation + verification
 │   ├── db.ts             # Prisma client with type-safe fallback
 │   ├── logger.ts         # Structured logger
 │   ├── rate-limit.ts     # Token bucket rate limiter
 │   ├── route-config.ts   # ISR vs force-dynamic presets
 │   └── validation.ts     # 9 Zod schemas
 ├── store/app-store.ts    # Zustand store (persisted)
-└── test/setup.ts         # Vitest setup
+└── test/                 # Vitest setup + jest-dom types
 ```
 
 ## 🔒 Security
 
 - ✅ NextAuth v4 authentication on all API routes
 - ✅ AES-256-GCM encryption for credentials & MCP API keys
+- ✅ CSRF protection (httpOnly cookie + timing-safe verification)
 - ✅ SSRF protection (blocks internal IPs, AWS/GCP metadata)
 - ✅ 6 security headers (HSTS, X-Frame-Options, CSP, etc.)
 - ✅ Rate limiting (5-100 req/min per route type)
@@ -129,11 +120,12 @@ src/
 - ✅ Vercel Cron with CRON_SECRET verification
 - ✅ Zod input validation on all POST routes
 - ✅ Structured logging (no console.log in API routes)
+- ✅ Prisma relations with onDelete: Cascade (referential integrity)
 
 ## 🧪 Testing
 
 ```bash
-bun run test          # 320 tests, 19 files
+bun run test          # 394 tests, 25 files
 bun run test:coverage # Coverage report
 ```
 

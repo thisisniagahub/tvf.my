@@ -1,6 +1,6 @@
 # TheViralFindsMY — Product Requirements Document (PRD)
 
-> **Version:** 5.0 | **Last Updated:** 19 June 2026 | **Status:** Production-Ready (theviralfinds.my)
+> **Version:** 6.0 | **Last Updated:** 20 June 2026 | **Status:** Production-Ready (theviralfinds.my)
 
 ---
 
@@ -16,11 +16,14 @@ TheViralFindsMY adalah platform AI-powered affiliate marketing management yang d
 - ✅ MCP plugin ecosystem (connect Hermes Agent / OpenClaw)
 - ✅ Social Media Management (8 platforms: FB, IG, TikTok, X, YouTube, LinkedIn, WhatsApp, Telegram)
 - ✅ 40 pages across 6 categories
-- ✅ 29 API routes dengan NextAuth + rate limiting + Zod validation
+- ✅ 30 API routes dengan NextAuth + CSRF + rate limiting + Zod validation
 - ✅ AES-256-GCM encryption untuk credentials
-- ✅ 320+ unit tests (Vitest)
+- ✅ 394 unit tests (Vitest, 25 files)
 - ✅ Retro-Futuristic Isometric Engine UI theme
 - ✅ WCAG AA compliant + prefers-reduced-motion support
+- ✅ Code splitting (settings: 88 lines, content-studio: 49 lines)
+- ✅ Performance optimized (React.memo, useDeferredValue, useMemo)
+- ✅ Prisma relations + indexes (6 relations, 3 composite indexes)
 
 ---
 
@@ -51,11 +54,12 @@ Social Dashboard, Content Scheduler, Social Analytics, Connected Accounts
 ### 3.1 Stats
 | Metric | Value |
 |--------|-------|
-| Source files | 190 TS/TSX |
-| API routes | 29 (7 ISR, 22 force-dynamic) |
-| Page components | 40 (lazy-loaded) |
-| Test files | 19 (320 tests, 100% pass) |
-| Prisma models | 9 |
+| Source files | 207 TS/TSX |
+| API routes | 30 (7 ISR, 23 force-dynamic) |
+| Page components | 40 (+ 9 sub-components) |
+| Test files | 25 (394 tests, 100% pass) |
+| Prisma models | 9 (6 with user relations) |
+| Prisma indexes | 3 composite |
 | TS errors | 0 |
 | ESLint errors | 0 |
 
@@ -73,7 +77,14 @@ Next.js 16.1.3, React 19, TypeScript 5 (strict), Tailwind CSS 4, shadcn/ui, Pris
 User, Post (default), AgentMemory, HermesSkill, HermesCronJob, HermesSubagent, McpServer, AgentCredential, Plugin
 
 ### 3.5 Security
-NextAuth v4, AES-256-GCM, SSRF protection, 6 security headers, rate limiting, ownership checks, CRON_SECRET, Zod validation, structured logging
+NextAuth v4, AES-256-GCM, CSRF protection, SSRF protection, 6 security headers, rate limiting, ownership checks, CRON_SECRET, Zod validation, structured logging, Prisma relations with cascade
+
+### 3.6 Performance
+- React.memo on sidebar NavItem (40 items)
+- useDeferredValue on products + header search
+- useMemo on dashboard chart data
+- React.memo on EarningsChart + ClicksOrdersChart
+- Code splitting: settings-page (88 lines), content-studio (49 lines)
 
 ---
 

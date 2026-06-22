@@ -31,6 +31,7 @@ bun run test
 - **Credentials**: Use `@/lib/crypto` (`encrypt()`/`decrypt()`) — AES-256-GCM
 - **MCP API keys**: Encrypt before storing, mask in responses
 - **SSRF**: Use `validateUrl()` before fetching external URLs
+- **CSRF**: Use `@/lib/csrf` for state-changing endpoints
 - **WebSocket**: Skip on Vercel production (detect via hostname)
 - **CORS**: Use `ALLOWED_ORIGINS` env var for Socket.io services
 
@@ -39,11 +40,14 @@ bun run test
 - Use `'use client'` only when needed (hooks, state, event handlers)
 - Use Framer Motion for animations
 - Use shared `_shared.tsx` components (PageHeader, StatCard, SectionCard)
-- Page components should be < 500 lines — extract sub-components
+- **Page components should be < 500 lines** — extract sub-components (see settings-page.tsx pattern)
+- Use `React.memo` for components that render lists (e.g., sidebar NavItem)
+- Use `useDeferredValue` for search inputs that trigger API calls
+- Use `useMemo` for data derived from API responses
 
 ### Styling
 - **No indigo/blue/sky colors** — use shopee (orange #ff6b00) or hermes (purple #8b5cf6)
-- Tailwind CSS 4 with CSS variables
+- Tailwind CSS 4 with CSS variables (no tailwind.config.ts — use globals.css)
 - Responsive: mobile-first (`sm:`, `md:`, `lg:`, `xl:`)
 - Support foldable devices (280px min-width)
 - WCAG AA contrast on glass panels
@@ -59,10 +63,16 @@ bun run test
 - TanStack Query for server state
 - Persist preferences with `persist` middleware
 
+### Database
+- Use `@/lib/db` (handles dynamic Prisma import + fallback)
+- All models with `userId` must have `@relation` to User with `onDelete: Cascade`
+- Add `@@index` on hot query paths
+
 ## 🧪 Testing
 - Write unit tests for all new utilities (`*.test.ts`)
 - Use Vitest globals (`describe`, `it`, `expect`, `vi`)
 - Target: 70%+ coverage on `src/lib/`
+- Test setup at `src/test/setup.ts` (mocks next-navigation, next-themes)
 
 ## 🚫 Don'ts
 - ❌ Don't use `any` type in API routes
@@ -71,4 +81,6 @@ bun run test
 - ❌ Don't recreate shadcn/ui components
 - ❌ Don't import z-ai-web-dev-sdk in client components
 - ❌ Don't accept `userId` from request body
-- ❌ Don't use static `import { PrismaClient }` — use `@/lib/db` which handles dynamic import
+- ❌ Don't use static `import { PrismaClient }` — use `@/lib/db`
+- ❌ Don't create `tailwind.config.ts` — use CSS-first config in `globals.css`
+- ❌ Don't create page components > 500 lines — split into sub-components
